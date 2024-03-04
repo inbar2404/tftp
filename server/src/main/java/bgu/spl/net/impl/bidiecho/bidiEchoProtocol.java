@@ -44,8 +44,10 @@ public class bidiEchoProtocol implements BidiMessagingProtocol<String> {
 
     @Override
     public boolean shouldTerminate() {
-        this.connections.disconnect(this.connectionId);
-        holder.ids_login.remove(this.connectionId);
+        if (shouldTerminate) {
+            this.connections.disconnect(this.connectionId);
+            holder.ids_login.remove(this.connectionId);
+        }
         return shouldTerminate;
     }
 }
