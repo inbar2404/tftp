@@ -3,6 +3,7 @@ package bgu.spl.net.impl.tftp;
 import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 // TODO: I think it should be in a different location
@@ -10,6 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private ConcurrentHashMap<Integer,ConnectionHandler<T>> connectedHandlersMap;
+
+    // TODO: consult where it should be
+    private HashMap<String, Integer> namesToIds = new HashMap<>();
 
     public ConnectionsImpl(){
         this.connectedHandlersMap = new ConcurrentHashMap<>();
@@ -35,4 +39,5 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public void disconnect(int connectionId) {
         connectedHandlersMap.remove(connectionId);
     }
+
 }

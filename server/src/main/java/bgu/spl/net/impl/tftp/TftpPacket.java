@@ -3,11 +3,11 @@ package bgu.spl.net.impl.tftp;
 public class TftpPacket {
 
     protected PacketOpcode opcode;
-    protected String arg;
+    protected byte[] message;
 
-    public TftpPacket(PacketOpcode opcode, String arg) {
+    public TftpPacket(byte[] message) {
         this.opcode = opcode;
-        this.arg = arg;
+        this.message = message;
     }
 
     public byte[] encode() {
