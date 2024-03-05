@@ -7,7 +7,6 @@ import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 // TODO: I think it should be in a different location
-// TODO: Is my implementation is accurate?
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private ConcurrentHashMap<Integer,ConnectionHandler<T>> connectedHandlersMap;
@@ -38,6 +37,16 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public void disconnect(int connectionId) {
         connectedHandlersMap.remove(connectionId);
+    }
+
+    @Override
+    public boolean isConnect(int connectionId) {
+        return connectedHandlersMap.contains(connectionId);
+    }
+
+    @Override
+    public boolean containsKey(String key) {
+        return connectedHandlersMap.containsKey(key);
     }
 
 }

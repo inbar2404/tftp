@@ -1,7 +1,5 @@
 package bgu.spl.net.srv;
 
-import java.io.IOException;
-
 public interface Connections<T> {
 
     void connect(int connectionId, ConnectionHandler<T> handler);
@@ -9,4 +7,10 @@ public interface Connections<T> {
     boolean send(int connectionId, T msg);
 
     void disconnect(int connectionId);
+
+    // TODO: Check in the forum it is ok to add something to the interface
+    boolean isConnect(int connectionId);
+
+    // TODO: SAME
+    boolean containsKey(String key);
 }
