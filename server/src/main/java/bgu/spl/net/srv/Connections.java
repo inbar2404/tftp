@@ -8,9 +8,7 @@ public interface Connections<T> {
 
     void disconnect(int connectionId);
 
-    // TODO: Check in the forum it is ok to add something to the interface
     boolean isConnect(int connectionId);
 
-    // TODO: SAME
     boolean containsKey(String key);
 }

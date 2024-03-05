@@ -71,7 +71,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
                 return null;
             }
         }
-        // TODO: Reset len after?
+        // TODO: Reset after?
 
     }
 }

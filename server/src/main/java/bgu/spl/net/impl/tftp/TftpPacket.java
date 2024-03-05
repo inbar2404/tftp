@@ -41,18 +41,23 @@ public class TftpPacket {
                 case LOGRQ: processLOGRQ(connectionID, connections);
             }
         } else {
-            // TODO: Update to the right values in the new packet
-            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, null, 0));
+            // TODO: Update len
+            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, convertStringToBytes("Login username already connected"), 0));
         }
     }
 
     private void processLOGRQ(int connectionID, Connections<TftpPacket> connections) {
         if (!connections.containsKey(this.arg)) {
-            // TODO: Update to the right values in the new packet
+            // TODO: Update msg + len
             connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, null, 0));
         } else {
-            // TODO: Update to the right values in the new packet
-            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, null, 0));
+            // TODO: Update len
+            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, convertStringToBytes("Login username already connected"), 0));
         }
+    }
+
+    private byte[] convertStringToBytes(String msg){
+        // TODO: Implement
+        return null;
     }
 }
