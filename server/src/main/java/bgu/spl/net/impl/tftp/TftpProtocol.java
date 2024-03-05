@@ -7,6 +7,7 @@ public class TftpProtocol implements BidiMessagingProtocol<TftpPacket>  {
 
     private int connectionId;
     private Connections<TftpPacket> connections;
+    private boolean shouldTerminate = false;
 
     @Override
     public void start(int connectionId, Connections<TftpPacket> connections) {
@@ -24,8 +25,11 @@ public class TftpProtocol implements BidiMessagingProtocol<TftpPacket>  {
 
     @Override
     public boolean shouldTerminate() {
-        // TODO implement this
-        throw new UnsupportedOperationException("Unimplemented method 'shouldTerminate'");
+        // TODO: Maybe required changes, I just wanted to check if it works
+        if (shouldTerminate) {
+            this.connections.disconnect(this.connectionId);
+        }
+        return shouldTerminate;
     } 
 
 

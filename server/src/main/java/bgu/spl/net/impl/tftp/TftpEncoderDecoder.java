@@ -40,14 +40,12 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
 //                }
 //            default:
 //        }
-
         // Not a line yet
         return null;
     }
 
     // Decodes the first 2 bytes to find the opcode
     private PacketOpcode decodeOpcode() {
-        // TODO: Replace magic numbers
         short opcode = (short) (((short) bytes[0]) << 8 | (short) (bytes[1]));
         return PacketOpcode.fromShort(opcode);
     }
