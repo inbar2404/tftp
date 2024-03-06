@@ -46,5 +46,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
     public boolean containsKey(String key) {
         return connectedHandlersMap.containsKey(key);
     }
-
+    public ConcurrentHashMap<Integer, ConnectionHandler<T>> getConnectedHandlersMap() {
+        return connectedHandlersMap;
+    }
 }

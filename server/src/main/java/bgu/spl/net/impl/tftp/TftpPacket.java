@@ -46,7 +46,6 @@ public class TftpPacket {
         // TODO: Complete other cases
         boolean shouldFinish = false;
         notConnected = opcode != PacketOpcode.LOGRQ && !NameToIdMap.contains(connectionID);
-        System.out.println(opcode + "proc");
         if (opcode == PacketOpcode.NOT_INIT) {
             byte[] msg = buildError(4, "Illegal TFTP operation");
             connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
@@ -102,17 +101,24 @@ public class TftpPacket {
                 userHadError = true;
                 msg = buildError(1, "File not found");
                 connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
-            }
-            else if (status=="failed") {
+            } else if (status == "failed") {
                 userHadError = true;
                 msg = buildError(2, "Access violation");
                 connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
             }
-        } else {
+        }
+        else {
+            // Send ack to the client
             msg = buildAck(0);
             connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
+            // Build and send broadcast message to all connected clients about the deleted file
+            msg = buildBcast(0,arg);
+            for (Integer id : connections.getConnectedHandlersMap().keySet()) {
+                if (NameToIdMap.contains(id)) {
+                    connections.send(id, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
+                }
+            }
         }
-
     }
 
     private String deleteFile(String filename) {
@@ -121,17 +127,13 @@ public class TftpPacket {
         if (file.exists()) {
             if ((!notConnected)) {
                 if (file.delete()) {
-                    System.out.println("File " + filename + " deleted successfully.");
                     return "deleted";
                 } else {
-                    System.out.println("Failed to delete file " + filename + ".");
                     return "failed";
                 }
-            }
-            else
+            } else
                 return "disc";
         } else {
-            System.out.println("File " + filename + " does not exist.");
             return "not exists";
         }
     }
@@ -165,4 +167,24 @@ public class TftpPacket {
 
         return encodedMessage;
     }
-}
+
+    private byte[] buildBcast(int actionNum,String fileName) {
+        byte BCAST_OPCODE = 9;
+        // Calculate the length of the byte array
+        int length = 2 + 1 + fileName.length() + 1; // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator
+        // Construct the byte array
+        byte[] bcastPacket = new byte[length];
+        // Encode the opcode
+        bcastPacket[0] = 0; // First byte is 0
+        bcastPacket[1] = BCAST_OPCODE; // Second byte is the opcode
+        // Encode the actionNum
+        bcastPacket[2] = (byte) actionNum;
+        // Encode the filename as UTF-8 bytes
+        byte[] fileNameBytes = fileName.getBytes(StandardCharsets.UTF_8);
+        System.arraycopy(fileNameBytes, 0, bcastPacket, 3, fileNameBytes.length);
+        // Add zero terminator
+        bcastPacket[length - 1] = 0;
+        return bcastPacket;
+
+        }
+    }
