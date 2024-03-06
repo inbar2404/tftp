@@ -31,7 +31,6 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
             case LOGRQ:
                 if (nextByte == finishingByte) {
                     return popPacket();
-
                 }
                 break;
             case DISC:
@@ -65,6 +64,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
         switch (opcode) {
             case LOGRQ:
             case DISC:
+            case DELRQ:
                 p = new TftpPacket(opcode, bytes, len);
                 // TODO: Do we need another way to handle the default later?
             default: {
