@@ -7,39 +7,30 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
     // TODO: Maybe c'tor will be better
     private byte[] bytes = new byte[1 << 10]; //start with 1k
     private int len = 0;
-
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
-
-
+    private final int OPCODE_LEN = 2;
+    private final byte finishingByte = (byte)0;
     @Override
     public TftpPacket decodeNextByte(byte nextByte) {
         // TODO: Remove the use of magic numbers
+        if (len == OPCODE_LEN) {
+            this.opcode = decodeOpcode();
+        }
+
+        switch (opcode) {
+            case RRQ:
+            case WRQ:
+            case ERROR:
+            case DELRQ:
+            case BCAST:
+            case LOGRQ:
+                if (nextByte == finishingByte) {
+                    return popPacket();
+                }
+
+            default:
+        }
         pushByte(nextByte);
-        this.opcode = decodeOpcode();
-        if (len == 2) {
-            return popPacket();
-        }
-        else if (len > 2) {
-            if (nextByte == '\0') {
-                return popPacket();
-            }
-            // TODO: Make sure handeling the other cases here
-            if(len>4){
-                // TODO: Handle OPCODE_DATA
-            }
-        }
-//        switch (opcode) {
-//            case RRQ:
-//            case WRQ:
-//            case ERROR:
-//            case LOGRQ:
-//            case DELRQ:
-//            case BCAST:
-//                if (nextByte == (byte) 0) {
-//                    return new TftpPacket(opcode, this.bytes);
-//                }
-//            default:
-//        }
         // Not a line yet
         return null;
     }
@@ -62,16 +53,25 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
 
     private TftpPacket popPacket() {
         // TODO: Handle other opcodes
+        TftpPacket p = null;
         switch (opcode) {
+            case DIRQ:
             case LOGRQ:
-                return new TftpPacket(opcode, bytes, len);
+                p = new TftpPacket(opcode, bytes, len);
+
             // TODO: Do we need another way to handle the default later?
             default: {
                 this.opcode = PacketOpcode.NOT_INIT;
-                return null;
             }
         }
-        // TODO: Reset after?
-
+        reset();
+        return p;
+    }
+    // Reset fields for next decoding
+    private void reset()
+    {
+        bytes = new byte[1 << 10]; //start with 1k
+        len = 0;
+        opcode = PacketOpcode.NOT_INIT;
     }
 }

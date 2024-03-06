@@ -11,17 +11,15 @@ public class TftpProtocol implements BidiMessagingProtocol<TftpPacket>  {
 
     @Override
     public void start(int connectionId, Connections<TftpPacket> connections) {
-        // TODO: Is something else required?
         this.connectionId = connectionId;
         this.connections = connections;
     }
 
     @Override
     public void process(TftpPacket message) {
-        switch (message.getOpcode()){
-            case LOGRQ:
-        }
+         message.process(connectionId,connections);
     }
+
 
     @Override
     public boolean shouldTerminate() {

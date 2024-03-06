@@ -11,8 +11,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     private ConcurrentHashMap<Integer,ConnectionHandler<T>> connectedHandlersMap;
 
-    // TODO: consult where it should be
-    private HashMap<String, Integer> namesToIds = new HashMap<>();
 
     public ConnectionsImpl(){
         this.connectedHandlersMap = new ConcurrentHashMap<>();

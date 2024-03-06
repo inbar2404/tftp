@@ -41,17 +41,19 @@ public abstract class BaseServer<T> implements Server<T> {
             this.sock = serverSock; //just to be able to close
 
             while (!Thread.currentThread().isInterrupted()) {
-
                 Socket clientSock = serverSock.accept();
+
                 BlockingConnectionHandler<T> handler = new BlockingConnectionHandler<>(
                         clientSock,
                         encdecFactory.get(),
-                        protocolFactory.get());
-
-                // TODO: consult
+                        protocolFactory.get()
+                        ,connections
+                        , id
+                );
                 // Add the client to the connections with unique id
                 connections.connect(id,handler);
                 id++;
+
                 execute(handler);
             }
         } catch (IOException ex) {
