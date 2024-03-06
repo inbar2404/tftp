@@ -34,7 +34,7 @@ public class TftpPacket {
     private void convertMessage() {
         // TODO: Handle other opcodes
         switch (opcode) {
-            // In this case arg is the user-name
+            // In this case arg is the user-name/filename
             case LOGRQ:
             case DELRQ:
                 this.arg = new String(message, 2, len - 2);
@@ -96,33 +96,43 @@ public class TftpPacket {
 
     private void processDELRQ(int connectionID, Connections<TftpPacket> connections) {
         byte[] msg;
-        System.out.println("proc del");
-        boolean deleted =deleteFile(arg);
-        if (!deleted) {
-            userHadError = true;
-            msg = buildError(1, "File not found");
-            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
-        } else if(!notConnected)  {
-            NameToIdMap.add(arg, connectionID);
+        String status = deleteFile(arg);
+        if (status != "deleted") {
+            if (status == "not exists") {
+                userHadError = true;
+                msg = buildError(1, "File not found");
+                connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
+            }
+            else if (status=="failed") {
+                userHadError = true;
+                msg = buildError(2, "Access violation");
+                connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
+            }
+        } else {
             msg = buildAck(0);
             connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
         }
 
     }
-    public static boolean deleteFile(String filename) {
+
+    private String deleteFile(String filename) {
         File file = new File("./Files/" + filename);
 
         if (file.exists()) {
-            if (file.delete()) {
-                System.out.println("File " + filename + " deleted successfully.");
-                return true;
-            } else {
-                System.out.println("Failed to delete file " + filename + ".");
-                return false;
+            if ((!notConnected)) {
+                if (file.delete()) {
+                    System.out.println("File " + filename + " deleted successfully.");
+                    return "deleted";
+                } else {
+                    System.out.println("Failed to delete file " + filename + ".");
+                    return "failed";
+                }
             }
+            else
+                return "disc";
         } else {
             System.out.println("File " + filename + " does not exist.");
-            return false;
+            return "not exists";
         }
     }
 
