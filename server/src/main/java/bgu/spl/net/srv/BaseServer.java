@@ -18,6 +18,7 @@ public abstract class BaseServer<T> implements Server<T> {
     private ServerSocket sock;
     private ConnectionsImpl<T> connections;
     private int id;
+
     public BaseServer(
             int port,
             Supplier<BidiMessagingProtocol<T>> protocolFactory,
@@ -27,8 +28,8 @@ public abstract class BaseServer<T> implements Server<T> {
         this.port = port;
         this.protocolFactory = protocolFactory;
         this.encdecFactory = encdecFactory;
-		this.sock = null;
-        this.connections=connections;
+        this.sock = null;
+        this.connections = connections;
         this.id = 0;
     }
 
@@ -36,7 +37,7 @@ public abstract class BaseServer<T> implements Server<T> {
     public void serve() {
 
         try (ServerSocket serverSock = new ServerSocket(port)) {
-			System.out.println("Server started");
+            System.out.println("Server started");
 
             this.sock = serverSock; //just to be able to close
 
@@ -47,11 +48,11 @@ public abstract class BaseServer<T> implements Server<T> {
                         clientSock,
                         encdecFactory.get(),
                         protocolFactory.get()
-                        ,connections
+                        , connections
                         , id
                 );
                 // Add the client to the connections with unique id
-                connections.connect(id,handler);
+                connections.connect(id, handler);
                 id++;
 
                 execute(handler);
@@ -64,10 +65,10 @@ public abstract class BaseServer<T> implements Server<T> {
 
     @Override
     public void close() throws IOException {
-		if (sock != null)
-			sock.close();
+        if (sock != null)
+            sock.close();
     }
 
-    protected abstract void execute(BlockingConnectionHandler<T>  handler);
+    protected abstract void execute(BlockingConnectionHandler<T> handler);
 
 }

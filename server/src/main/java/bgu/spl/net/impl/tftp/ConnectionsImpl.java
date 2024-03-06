@@ -9,10 +9,10 @@ import java.util.concurrent.ConcurrentHashMap;
 // TODO: I think it should be in a different location
 public class ConnectionsImpl<T> implements Connections<T> {
 
-    private ConcurrentHashMap<Integer,ConnectionHandler<T>> connectedHandlersMap;
+    private ConcurrentHashMap<Integer, ConnectionHandler<T>> connectedHandlersMap;
 
 
-    public ConnectionsImpl(){
+    public ConnectionsImpl() {
         this.connectedHandlersMap = new ConcurrentHashMap<>();
     }
 

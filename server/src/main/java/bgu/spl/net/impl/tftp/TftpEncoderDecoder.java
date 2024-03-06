@@ -9,11 +9,16 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
     private final int OPCODE_LEN = 2;
-    private final byte finishingByte = (byte)0;
+    private final byte finishingByte = (byte) 0;
+
     @Override
     public TftpPacket decodeNextByte(byte nextByte) {
         // TODO: Remove the use of magic numbers
         if (len == OPCODE_LEN) {
+            this.opcode = decodeOpcode();
+        } else if (len == 1 && nextByte == (byte) 0x000A) {
+            // DISCONNECT
+            pushByte(nextByte);
             this.opcode = decodeOpcode();
         }
 
@@ -26,8 +31,11 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
             case LOGRQ:
                 if (nextByte == finishingByte) {
                     return popPacket();
-                }
 
+                }
+                break;
+            case DISC:
+                return popPacket();
             default:
         }
         pushByte(nextByte);
@@ -55,11 +63,10 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
         // TODO: Handle other opcodes
         TftpPacket p = null;
         switch (opcode) {
-            case DIRQ:
             case LOGRQ:
+            case DISC:
                 p = new TftpPacket(opcode, bytes, len);
-
-            // TODO: Do we need another way to handle the default later?
+                // TODO: Do we need another way to handle the default later?
             default: {
                 this.opcode = PacketOpcode.NOT_INIT;
             }
@@ -67,9 +74,9 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
         reset();
         return p;
     }
+
     // Reset fields for next decoding
-    private void reset()
-    {
+    private void reset() {
         bytes = new byte[1 << 10]; //start with 1k
         len = 0;
         opcode = PacketOpcode.NOT_INIT;

@@ -36,48 +36,61 @@ public class TftpPacket {
         }
     }
 
-    public void process(int connectionID, Connections<TftpPacket> connections) {
-        System.out.println("proc");
+    public boolean process(int connectionID, Connections<TftpPacket> connections) {
         // TODO: Complete other cases
-        if (opcode == PacketOpcode.NOT_INIT)
-        {
-            byte[] msg = buildError(4,"Illegal TFTP operation");
-            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
-        }
+        boolean shouldFinish = false;
 
-        else if(opcode != PacketOpcode.LOGRQ && !NameToIdMap.contains(connectionID))
-        {
-            byte[] msg = buildError(6,"User not logged in");
+        if (opcode == PacketOpcode.NOT_INIT) {
+            byte[] msg = buildError(4, "Illegal TFTP operation");
+            connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
+        } else if (opcode != PacketOpcode.LOGRQ && !NameToIdMap.contains(connectionID)) {
+            byte[] msg = buildError(6, "User not logged in");
             connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
         }
 
         switch (opcode) {
-            case LOGRQ:
+            case LOGRQ: {
                 processLOGRQ(connectionID, connections);
+                break;
+            }
+            case DISC: {
+                shouldFinish = true;
+                processDISC(connectionID, connections);
+                break;
+            }
         }
+        return shouldFinish;
     }
 
     private void processLOGRQ(int connectionID, Connections<TftpPacket> connections) {
+        System.out.println("proc logrq");
         byte[] msg;
-        if(NameToIdMap.contains(connectionID))
-        {
-            msg = buildError(0,"this user already connected from this socket");
+        if (NameToIdMap.contains(connectionID)) {
+            msg = buildError(0, "this user already connected from this socket");
             connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
-        }
-        else if (!NameToIdMap.contains(this.arg)) {
+        } else if (!NameToIdMap.contains(this.arg)) {
             NameToIdMap.add(arg, connectionID);
-            msg= buildAck(0);
+            msg = buildAck(0);
             connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
         } else {
-            msg = buildError(7,"User already logged in");
+            msg = buildError(7, "User already logged in");
             connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
         }
     }
-    private byte[] buildAck(int seqNumber)
-    {
+
+    private void processDISC(int connectionID, Connections<TftpPacket> connections) {
+        System.out.println("proc disc");
+
+        byte[] msg;
+        msg = buildAck(0);
+        connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
+    }
+
+
+    private byte[] buildAck(int seqNumber) {
         // TODO  : handle seqNumber>0
         byte[] msg;
-        if (seqNumber ==0) {
+        if (seqNumber == 0) {
             msg = new byte[]{0, 4, 0, 0};
             return msg;
         }
