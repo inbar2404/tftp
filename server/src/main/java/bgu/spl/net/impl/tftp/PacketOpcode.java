@@ -1,6 +1,6 @@
 package bgu.spl.net.impl.tftp;
 
-// TODO: Complete enum, maybe should be in a diffrent file
+// Enum class representing the different opcodes
 public enum PacketOpcode {
     NOT_INIT((short) 99),
     RRQ((short) 1),
@@ -14,18 +14,14 @@ public enum PacketOpcode {
     BCAST((short) 9),
     DISC((short) 10);
 
-
     private final short shortValue;
 
     PacketOpcode(short shortValue) {
         this.shortValue = shortValue;
     }
 
-    public short getShortValue() {
-        return shortValue;
-    }
-
     public static PacketOpcode fromShort(short shortValue) {
+        // Converts opcode from short to PacketOpcode
         for (PacketOpcode opcode : values()) {
             if (opcode.shortValue == shortValue) {
                 return opcode;

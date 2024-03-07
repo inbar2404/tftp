@@ -2,44 +2,66 @@ package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.api.MessageEncoderDecoder;
 
-public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
-    // TODO: I don't sure it is the correct thing to do - I took it from bidiEncoderDecoder.java
+import java.util.Arrays;
+
+public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     // TODO: Maybe c'tor will be better
     private byte[] bytes = new byte[1 << 10]; //start with 1k
+    // Copy of a byte array, but until bytes actual len.
+    private byte[] copyBytes;
     private int len = 0;
-
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
-
+    private final int OPCODE_LEN = 2;
+    private final byte finishingByte = (byte) 0;
 
     @Override
-    public TftpPacket decodeNextByte(byte nextByte) {
-        // TODO: Remove the use of magic numbers
+    public byte[] decodeNextByte(byte nextByte) {
+        // Reset fields if its new msg
+        if (len == 0) {
+            reset();
+        }
+        // Find opcode when received 2 bytes
+        if (len == OPCODE_LEN) {
+            this.opcode = decodeOpcode();
+        }
+        // DISC OR DIRQ ARE SPECIAL WITH ONLY 2 BYTES
+        else if (len == 1 && (nextByte == (byte) 0x000A || nextByte == (byte) 6)) {
+            pushByte(nextByte);
+            this.opcode = decodeOpcode();
+        }
+
+        switch (opcode) {
+            case RRQ:
+            case WRQ:
+            case ERROR:
+            case DELRQ:
+            case BCAST:
+            case LOGRQ:
+                if (nextByte == finishingByte) {
+                    // Those opcodes finish with byte 0
+                    copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
+                    len = 0;
+                    return copyBytes;
+                }
+                break;
+            case ACK:
+                if (len == 3) {
+                    // Those opcodes are exactly 4 bytes
+                    pushByte(nextByte);
+                    copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
+                    len = 0;
+                    return copyBytes;
+                }
+                break;
+            case DISC:
+            case DIRQ:
+                // Those opcodes are exactly 2 bytes - only opcode
+                copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
+                len = 0;
+                return copyBytes;
+            default:
+        }
         pushByte(nextByte);
-        this.opcode = decodeOpcode();
-        if (len == 2) {
-            return popPacket();
-        }
-        else if (len > 2) {
-            if (nextByte == '\0') {
-                return popPacket();
-            }
-            // TODO: Make sure handeling the other cases here
-            if(len>4){
-                // TODO: Handle OPCODE_DATA
-            }
-        }
-//        switch (opcode) {
-//            case RRQ:
-//            case WRQ:
-//            case ERROR:
-//            case LOGRQ:
-//            case DELRQ:
-//            case BCAST:
-//                if (nextByte == (byte) 0) {
-//                    return new TftpPacket(opcode, this.bytes);
-//                }
-//            default:
-//        }
         // Not a line yet
         return null;
     }
@@ -51,8 +73,8 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
     }
 
     @Override
-    public byte[] encode(TftpPacket message) {
-        return message.encode();
+    public byte[] encode(byte[] message) {
+        return message;
     }
 
     private void pushByte(byte nextByte) {
@@ -60,18 +82,10 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
         len++;
     }
 
-    private TftpPacket popPacket() {
-        // TODO: Handle other opcodes
-        switch (opcode) {
-            case LOGRQ:
-                return new TftpPacket(opcode, bytes, len);
-            // TODO: Do we need another way to handle the default later?
-            default: {
-                this.opcode = PacketOpcode.NOT_INIT;
-                return null;
-            }
-        }
-        // TODO: Reset after?
-
+    // Reset fields for next decoding
+    private void reset() {
+        bytes = new byte[1 << 10]; //start with 1k
+        len = 0;
+        opcode = PacketOpcode.NOT_INIT;
     }
 }
