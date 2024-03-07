@@ -13,11 +13,12 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
 
     @Override
     public TftpPacket decodeNextByte(byte nextByte) {
-        // TODO: Remove the use of magic numbers
         if (len == OPCODE_LEN) {
             this.opcode = decodeOpcode();
-        } else if (len == 1 && nextByte == (byte) 0x000A) {
-            // DISCONNECT
+        }
+        // DISC OR DIRQ ARE SPECIAL WITH ONLY 2 BYTES
+        else if (len == 1 && (nextByte == (byte) 0x000A || nextByte == (byte)6))
+        {
             pushByte(nextByte);
             this.opcode = decodeOpcode();
         }
@@ -33,7 +34,15 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
                     return popPacket();
                 }
                 break;
+            case ACK:
+                if(len == 3)
+                {
+                    pushByte(nextByte);
+                    return popPacket();
+                }
+                break;
             case DISC:
+            case DIRQ:
                 return popPacket();
             default:
         }
@@ -65,6 +74,8 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<TftpPacket> {
             case LOGRQ:
             case DISC:
             case DELRQ:
+            case DIRQ:
+            case ACK:
                 p = new TftpPacket(opcode, bytes, len);
                 // TODO: Do we need another way to handle the default later?
             default: {

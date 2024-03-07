@@ -4,6 +4,7 @@ import bgu.spl.net.srv.Connections;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedList;
 
 public class TftpPacket {
 
@@ -12,13 +13,15 @@ public class TftpPacket {
     private int len;
     private String arg;
     private boolean notConnected;
-    boolean userHadError;
+    public boolean userHadError;
+    private short seqNumReceived;
 
     public TftpPacket(PacketOpcode opcode, byte[] message, int len) {
         this.opcode = opcode;
         this.message = message;
         this.len = len;
         this.userHadError = false;
+
         convertMessage();
     }
 
@@ -39,9 +42,14 @@ public class TftpPacket {
             case DELRQ:
                 this.arg = new String(message, 2, len - 2);
                 break;
+            case ACK:
+                this.seqNumReceived = (short) (((short) message[2]) << 8 | (short) (message[3]));
+                break;
+
         }
     }
 
+    /*
     public boolean process(int connectionID, Connections<TftpPacket> connections) {
         // TODO: Complete other cases
         boolean shouldFinish = false;
@@ -61,9 +69,18 @@ public class TftpPacket {
                 processDISC(connectionID, connections);
                 break;
             }
-            case DELRQ:
+            case DELRQ: {
                 processDELRQ(connectionID, connections);
                 break;
+            }
+            case DIRQ: {
+                processDIRQ(connectionID, connections);
+                break;
+            }
+            case ACK: {
+                processAck(connectionID, connections);
+                break;
+            }
         }
         if (notConnected && !userHadError) {
             byte[] msg = buildError(6, "User not logged in");
@@ -71,8 +88,9 @@ public class TftpPacket {
         }
         return shouldFinish;
     }
+    */
 
-    private void processLOGRQ(int connectionID, Connections<TftpPacket> connections) {
+    public void processLOGRQ(int connectionID, Connections<TftpPacket> connections) {
         byte[] msg;
         if (NameToIdMap.contains(connectionID)) {
             msg = buildError(0, "this user already connected from this socket");
@@ -87,13 +105,13 @@ public class TftpPacket {
         }
     }
 
-    private void processDISC(int connectionID, Connections<TftpPacket> connections) {
+    public void processDISC(int connectionID, Connections<TftpPacket> connections) {
         byte[] msg;
         msg = buildAck(0);
         connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
     }
 
-    private void processDELRQ(int connectionID, Connections<TftpPacket> connections) {
+    public void processDELRQ(int connectionID, Connections<TftpPacket> connections) {
         byte[] msg;
         String status = deleteFile(arg);
         if (status != "deleted") {
@@ -106,13 +124,12 @@ public class TftpPacket {
                 msg = buildError(2, "Access violation");
                 connections.send(connectionID, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
             }
-        }
-        else {
+        } else {
             // Send ack to the client
             msg = buildAck(0);
             connections.send(connectionID, new TftpPacket(PacketOpcode.ACK, msg, msg.length));
             // Build and send broadcast message to all connected clients about the deleted file
-            msg = buildBcast(0,arg);
+            msg = buildBcast(0, arg);
             for (Integer id : connections.getConnectedHandlersMap().keySet()) {
                 if (NameToIdMap.contains(id)) {
                     connections.send(id, new TftpPacket(PacketOpcode.ERROR, msg, msg.length));
@@ -120,6 +137,7 @@ public class TftpPacket {
             }
         }
     }
+
 
     private String deleteFile(String filename) {
         File file = new File("./Files/" + filename);
@@ -138,6 +156,99 @@ public class TftpPacket {
         }
     }
 
+    public void processDIRQ(int connectionID, Connections<TftpPacket> connections, boolean serverFinisheSendingDirData ,int seqNumSent,int lastFileStartIndex, LinkedList<String> files) {
+        if (notConnected)
+            return;
+        files = getFileList("./Files");
+        TftpProtocol.setFiles(files);
+        byte[] msg = buildDirDataPacket(seqNumSent, files,lastFileStartIndex);
+        connections.send(connectionID, new TftpPacket(PacketOpcode.DATA, msg, msg.length));
+
+    }
+
+    private LinkedList<String> getFileList(String directoryPath) {
+        LinkedList<String> fileList = new LinkedList<>();
+        File directory = new File(directoryPath);
+
+        if (directory.exists() && directory.isDirectory()) {
+            String[] files = directory.list();
+            for (String file : files) {
+                fileList.add(file);
+            }
+        } else {
+            System.err.println("Directory does not exist or is not a directory.");
+        }
+
+        return fileList;
+    }
+
+    public void processAck(int connectionID, Connections<TftpPacket> connections, boolean serverFinisheSendingDirData ,int seqNumSent,int lastFileStartIndex, LinkedList<String> files) {
+        if (seqNumSent == (int) this.seqNumReceived && !serverFinisheSendingDirData) {
+            seqNumSent++;
+            TftpProtocol.setSeqNumSent(seqNumSent);
+            byte[] msg = buildDirDataPacket(seqNumSent,files,lastFileStartIndex);
+            connections.send(connectionID, new TftpPacket(PacketOpcode.DATA, msg, msg.length));
+        }
+        else {
+            TftpProtocol.setSeqNumSent(1);
+            TftpProtocol.setLastFileStartIndex(0);
+
+        }
+    }
+
+
+    private byte[] buildDirDataPacket(int seqNumber, LinkedList<String> files,int lastFileStartIndex) {
+        int totalCharacterCount = 0;
+        for (String fileName : files) {
+            totalCharacterCount += fileName.length();
+        }
+        System.out.println("count "+ totalCharacterCount);
+        int maxSize = 512;
+        int dataSize = Math.min(maxSize, totalCharacterCount + files.size() - 1);
+        // If the packet date size is less than 512, it's the last one
+        TftpProtocol.setServerFinisheSendingDirData(dataSize < 512);
+        int opcode = 3;
+        int headerSize = 6;
+        int length = headerSize + dataSize; // 2 bytes opcode + 2 bytes PacketSize + 2 BYTES seqNumber  + dataMsgBytes
+        byte[] encodedMessage = new byte[length];
+        // Encode opcode
+        encodedMessage[0] = (byte) (opcode >> 8);
+        encodedMessage[1] = (byte) opcode;
+        // Encode dataMsgLength
+        encodedMessage[2] = (byte) (dataSize >> 8);
+        encodedMessage[3] = (byte) dataSize;
+        // Encode dataMsgSeqNum
+        encodedMessage[4] = (byte) (seqNumber >> 8);
+        encodedMessage[5] = (byte) seqNumber;
+        int destPos = 6;
+        int srcPos = lastFileStartIndex;
+        int copySize = 0;
+        int startFileSize = files.size();
+        // Encode dataMsg
+        for (int ind = 0; ind < startFileSize; ind++) {
+            String file = files.getFirst();
+            byte[] fileName = file.substring(lastFileStartIndex).getBytes(StandardCharsets.UTF_8);
+            // Copy until finished file name or finished packet
+            copySize = Math.min(file.length(), dataSize + headerSize - destPos);
+            if (copySize <= 0)
+                break;
+            // Copy to the array
+            System.arraycopy(fileName, srcPos, encodedMessage, destPos, copySize);
+            destPos += copySize;
+
+            // Add 0 tp separate between file names and remove the finished file
+            if (destPos < (encodedMessage.length - headerSize)) {
+                destPos++;
+                encodedMessage[destPos] = 0;
+                files.removeFirst();
+            }
+        }
+        TftpProtocol.setLastFileStartIndex ( Math.max(copySize, 0));
+        TftpProtocol.setFiles(files);
+        return encodedMessage;
+    }
+
+
     private byte[] buildAck(int seqNumber) {
         // TODO  : handle seqNumber>0
         byte[] msg;
@@ -149,7 +260,7 @@ public class TftpPacket {
     }
 
     // Builds bytes array representing the error packet, with corresponding code and message.
-    public static byte[] buildError(int errorCode, String errMsg) {
+    public  byte[] buildError(int errorCode, String errMsg) {
         int opcode = 5;
         byte[] errMsgBytes = errMsg.getBytes(StandardCharsets.UTF_8);
         int length = 2 + 2 + errMsgBytes.length + 1; // 2 bytes opcode + 2 bytes errorCode + errMsgBytes + 1 byte zero terminator
@@ -168,7 +279,7 @@ public class TftpPacket {
         return encodedMessage;
     }
 
-    private byte[] buildBcast(int actionNum,String fileName) {
+    private byte[] buildBcast(int actionNum, String fileName) {
         byte BCAST_OPCODE = 9;
         // Calculate the length of the byte array
         int length = 2 + 1 + fileName.length() + 1; // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator
@@ -186,5 +297,5 @@ public class TftpPacket {
         bcastPacket[length - 1] = 0;
         return bcastPacket;
 
-        }
     }
+}
