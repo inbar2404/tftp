@@ -10,9 +10,5 @@ public interface Connections<T> {
 
     void disconnect(int connectionId);
 
-    boolean isConnect(int connectionId);
-
-    boolean containsKey(String key);
-
     ConcurrentHashMap<Integer, ConnectionHandler<T>> getConnectedHandlersMap();
 }

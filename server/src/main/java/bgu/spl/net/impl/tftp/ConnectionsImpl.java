@@ -6,11 +6,9 @@ import bgu.spl.net.srv.Connections;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
-// TODO: I think it should be in a different location
 public class ConnectionsImpl<T> implements Connections<T> {
 
     private ConcurrentHashMap<Integer, ConnectionHandler<T>> connectedHandlersMap;
-
 
     public ConnectionsImpl() {
         this.connectedHandlersMap = new ConcurrentHashMap<>();
@@ -37,15 +35,6 @@ public class ConnectionsImpl<T> implements Connections<T> {
         connectedHandlersMap.remove(connectionId);
     }
 
-    @Override
-    public boolean isConnect(int connectionId) {
-        return connectedHandlersMap.contains(connectionId);
-    }
-
-    @Override
-    public boolean containsKey(String key) {
-        return connectedHandlersMap.containsKey(key);
-    }
     public ConcurrentHashMap<Integer, ConnectionHandler<T>> getConnectedHandlersMap() {
         return connectedHandlersMap;
     }
