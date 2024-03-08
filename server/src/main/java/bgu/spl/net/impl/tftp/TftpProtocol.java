@@ -4,7 +4,10 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.LinkedList;
 
 public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
@@ -18,14 +21,16 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     public boolean userHadError;
     private String arg;
     private boolean notConnected;
-
-    // Fields for DIRQ request.
-    private boolean serverFinishedSendingDirData;
+    private boolean serverFinishedSendingData;
     private int seqNumSent;
     private short seqNumReceived;
-    private int lastFileStartIndex;
+    private int latestIndexData;
     private LinkedList<String> files;
     private NameToIdMap nameToIdMap;
+    private final int MAX_DATA_SIZE = 512;
+    private final int DATA_HEADER_SIZE = 6; // 2 bytes opcode + 2 bytes PacketSize + 2 bytes seqNumber
+    private String fileName;
+    private byte[] data;
 
     @Override
     public void start(int connectionId, Connections<byte[]> connections, NameToIdMap nameToIdMap) {
@@ -33,10 +38,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         this.connectionId = connectionId;
         this.connections = connections;
         this.userHadError = false;
-        // Initialize dir request fields.
-        this.serverFinishedSendingDirData = false;
+        // Initialize data request fields.
+        this.serverFinishedSendingData = false;
         this.seqNumSent = 1;
-        this.lastFileStartIndex = 0;
+        this.latestIndexData = 0;
     }
 
     @Override
@@ -74,6 +79,14 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 processAck();
                 break;
             }
+            case WRQ: {
+                processWRQ();
+                break;
+            }
+            case RRQ: {
+                processRRQ();
+                break;
+            }
         }
         // If the only error the user had, it's that he his not connected, send an error msg.
         if (notConnected && !userHadError) {
@@ -96,6 +109,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             case LOGRQ:
             case DELRQ:
                 this.arg = new String(message, 2, message.length - 2);
+                break;
+            case RRQ:
+                this.fileName = new String(message, 2, message.length - 2);
                 break;
             // In this case arg is the seqNumReceived.
             case ACK:
@@ -176,7 +192,21 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             return;
         // Build a linked list of file names
         files = getFileList("./Files");
-        connections.send(connectionId,  buildDirDataPacket());
+        updateDataAsDirList();
+        connections.send(connectionId, buildDataPacket());
+    }
+
+    private void updateDataAsDirList() {
+        byte[] msg = new byte[0];
+        if (files != null) {
+            for (String fileName : files) {
+                int originalLength = msg.length;
+                msg = Arrays.copyOf(msg, msg.length + fileName.getBytes().length + 1);
+                System.arraycopy(fileName.getBytes(), 0, msg, originalLength, fileName.getBytes().length);
+                msg[msg.length - 1] = '\0';
+            }
+        }
+        this.data = msg;
     }
 
     private LinkedList<String> getFileList(String directoryPath) {
@@ -196,76 +226,86 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     public void processAck() {
-
-        // Ack packet received for dir request data packets - conitinue sending depands on serverFinishedSendingDirData boolean and tcp correct order
-        if (seqNumSent == (int) this.seqNumReceived && !serverFinishedSendingDirData) {
+        // Ack packet received for request data packets - conitinue sending depands on serverFinishedSendingDirData boolean and tcp correct order
+        if (seqNumSent == (int) this.seqNumReceived && !serverFinishedSendingData) {
             seqNumSent++;
             setSeqNumSent(seqNumSent);
-            byte[] msg = buildDirDataPacket();
+            byte[] msg = buildDataPacket();
             connections.send(connectionId, msg);
         } else {
             // If finished - reset
             setSeqNumSent(1);
-            setLastFileStartIndex(0);
-            setServerFinishedSendingDirData(false);
+            setLatestIndexData(0);
+            setServerFinishedSendingData(false);
             setFiles(null);
         }
     }
 
-    private byte[] buildDirDataPacket() {
-        int totalCharacterCount = 0;
-        for (String fileName : files) {
-            totalCharacterCount += fileName.length();
+    public void processWRQ() {
+//        // If user not connected - return error.
+//        if (notConnected) {
+//            userHadError = true;
+//            connections.send(connectionId, buildError(6, "User not logged in"));
+//        } else {
+//            // If file already exists - return error.
+//            File file = new File("./Files/" + arg);
+//            if (file.exists()) {
+//                userHadError = true;
+//                connections.send(connectionId, buildError(6, "File already exists"));
+//            } else {
+//                // Send ack to the client.
+//                connections.send(connectionId, buildAck(0));
+//            }
+//        }
+    }
+
+    // Downloads the file from the server to the client.
+    public void processRRQ() {
+        File file = new File("./Files/" + fileName);
+        if (!file.exists()) {
+            userHadError = true;
+            connections.send(connectionId, buildError(1, "File not found"));
+        } else if (!notConnected) {
+            try {
+                this.data = Files.readAllBytes(file.toPath());
+                connections.send(connectionId, buildDataPacket());
+            } catch (IOException ignored) {
+                userHadError = true;
+                connections.send(connectionId, buildError(2, "Access violation"));
+            }
+        } else {
+            userHadError = true;
+            connections.send(connectionId, buildError(6, "User not logged in"));
         }
-        int maxSize = 512;
-        // The data size of the packet is minimum between 512 max size , or  total file names + 0 separators(files.size() - 1 from this).
-        int dataSize = Math.min(maxSize, totalCharacterCount + files.size() - 1);
-        // If the packet date size is less than 512, it's the last one.
-        setServerFinishedSendingDirData(dataSize < 512);
-        int opcode = 3;
-        int headerSize = 6;
-        int length = headerSize + dataSize; // 2 bytes opcode + 2 bytes PacketSize + 2 BYTES seqNumber  + dataMsgBytes
-        byte[] encodedMessage = new byte[length];
-        // Encode opcode
+    }
+
+    private byte[] buildDataPacket() {
+        int requireNumberOfPackets = data.length / MAX_DATA_SIZE + 1;
+        setServerFinishedSendingData(requireNumberOfPackets <= 1);
+
+        int length = Math.min(MAX_DATA_SIZE, data.length);
+        int dataSize = Math.min(MAX_DATA_SIZE, data.length + DATA_HEADER_SIZE);
+        int opcode = 3; // DATA opcode
+
+        // Encode the message
+        byte[] encodedMessage = new byte[dataSize];
         encodedMessage[0] = (byte) (opcode >> 8);
         encodedMessage[1] = (byte) opcode;
-        // Encode dataMsgLength
-        encodedMessage[2] = (byte) (dataSize >> 8);
-        encodedMessage[3] = (byte) dataSize;
-        // Encode dataMsgSeqNum
+        encodedMessage[2] = (byte) (length >> 8);
+        encodedMessage[3] = (byte) length;
         encodedMessage[4] = (byte) (seqNumSent >> 8);
         encodedMessage[5] = (byte) seqNumSent;
-        // The position to start inserting data from
-        int destPos = 6;
-        // Start from 0/last character index of file already partly processed file
-        int srcPos = lastFileStartIndex;
-        // How many bytes to copy from the file name
-        int copySize = 0;
-        int startFileSize = files.size();
-        // Encode dataMsg
-        for (int ind = 0; ind < startFileSize; ind++) {
-            String file = files.getFirst();
-            // Convert file name to a byte array.
-            byte[] fileName = file.substring(lastFileStartIndex).getBytes(StandardCharsets.UTF_8);
-            // Copy until finished file name or finished packet.
-            copySize = Math.min(file.length(), dataSize + headerSize - destPos);
-            // Break if finished packet size
-            if (copySize <= 0)
-                break;
-            // Copy to the array
-            System.arraycopy(fileName, srcPos, encodedMessage, destPos, copySize);
-            destPos += copySize;
 
-            // Add 0  separators between file names and remove the finished file
-            if (destPos < (encodedMessage.length - headerSize)) {
-                destPos++;
-                encodedMessage[destPos] = 0;
-                files.removeFirst();
-            }
-        }
+        int startInsertDataIndex = 6;
+        int dataStartIndex = latestIndexData;
+        int copySize = dataSize - DATA_HEADER_SIZE;
+        System.arraycopy(data, dataStartIndex, encodedMessage, startInsertDataIndex, copySize);
+
         // Update fields for next DATA packet if needed
-        setLastFileStartIndex(Math.max(copySize, 0));
-        setFiles(files);
+        setLatestIndexData(latestIndexData + dataSize);
+        if (requireNumberOfPackets < 1) {
+            setData(null);
+        }
         return encodedMessage;
     }
 
@@ -318,24 +358,23 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         return bcastPacket;
     }
 
-    // Setter for serverFinishedSendingDirData
-    private void setServerFinishedSendingDirData(boolean value) {
-        serverFinishedSendingDirData = value;
+    private void setServerFinishedSendingData(boolean value) {
+        serverFinishedSendingData = value;
     }
 
-    // Setter for seqNumSent
     private void setSeqNumSent(int value) {
         seqNumSent = value;
     }
 
-    // Setter for lastFileStartIndex
-    private void setLastFileStartIndex(int value) {
-        lastFileStartIndex = value;
+    private void setLatestIndexData(int value) {
+        latestIndexData = value;
     }
 
-    // Setter for files
     private void setFiles(LinkedList<String> value) {
         files = value;
     }
 
+    private void setData(byte[] data) {
+        this.data = data;
+    }
 }
