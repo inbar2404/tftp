@@ -88,7 +88,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 break;
             }
         }
-        // If the only error the user had, it's that he his not connected, send an error msg.
+        // If the only error the user had, it's that he is not connected, send an error msg.
         if (notConnected && !userHadError) {
             byte[] msg = buildError(6, "User not logged in");
             connections.send(connectionId, msg);
@@ -168,9 +168,9 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         }
     }
 
-    private String deleteFile(String filename) {
+    private String deleteFile(String fileToDelete) {
         // This function tries to delete the file, and returns String representing the status of the file deletion.
-        File file = new File("./Files/" + filename);
+        File file = new File("./Files/" + fileToDelete);
 
         if (file.exists()) {
             if ((!notConnected)) {
@@ -199,11 +199,19 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     private void updateDataAsDirList() {
         byte[] msg = new byte[0];
         if (files != null) {
-            for (String fileName : files) {
+            // Make sure there is a '0' in the end of each file name, except the last one
+            for (int i = 0; i < files.size(); i++) {
+                String name = files.get(i);
                 int originalLength = msg.length;
-                msg = Arrays.copyOf(msg, msg.length + fileName.getBytes().length + 1);
-                System.arraycopy(fileName.getBytes(), 0, msg, originalLength, fileName.getBytes().length);
-                msg[msg.length - 1] = '\0';
+                if (i != files.size() - 1) {
+                    msg = Arrays.copyOf(msg, msg.length + name.getBytes().length + 1);
+                } else {
+                    msg = Arrays.copyOf(msg, msg.length + name.getBytes().length);
+                }
+                System.arraycopy(name.getBytes(), 0, msg, originalLength, name.getBytes().length);
+                if (i != files.size() - 1) {
+                    msg[msg.length - 1] = '\0';
+                }
             }
         }
         this.data = msg;
@@ -238,6 +246,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             setLatestIndexData(0);
             setServerFinishedSendingData(false);
             setFiles(null);
+            setData(null);
         }
     }
 
@@ -281,31 +290,26 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private byte[] buildDataPacket() {
         int requireNumberOfPackets = data.length / MAX_DATA_SIZE + 1;
-        setServerFinishedSendingData(requireNumberOfPackets <= 1);
+        setServerFinishedSendingData(requireNumberOfPackets-seqNumSent < 1);
 
-        int length = Math.min(MAX_DATA_SIZE, data.length);
-        int dataSize = Math.min(MAX_DATA_SIZE, data.length + DATA_HEADER_SIZE);
+        int dataSize = Math.min(MAX_DATA_SIZE, data.length - latestIndexData);
         int opcode = 3; // DATA opcode
 
         // Encode the message
-        byte[] encodedMessage = new byte[dataSize];
+        byte[] encodedMessage = new byte[dataSize + DATA_HEADER_SIZE];
         encodedMessage[0] = (byte) (opcode >> 8);
         encodedMessage[1] = (byte) opcode;
-        encodedMessage[2] = (byte) (length >> 8);
-        encodedMessage[3] = (byte) length;
+        encodedMessage[2] = (byte) (dataSize >> 8);
+        encodedMessage[3] = (byte) dataSize;
         encodedMessage[4] = (byte) (seqNumSent >> 8);
         encodedMessage[5] = (byte) seqNumSent;
 
         int startInsertDataIndex = 6;
         int dataStartIndex = latestIndexData;
-        int copySize = dataSize - DATA_HEADER_SIZE;
-        System.arraycopy(data, dataStartIndex, encodedMessage, startInsertDataIndex, copySize);
+        System.arraycopy(data, dataStartIndex, encodedMessage, startInsertDataIndex, dataSize);
 
         // Update fields for next DATA packet if needed
         setLatestIndexData(latestIndexData + dataSize);
-        if (requireNumberOfPackets < 1) {
-            setData(null);
-        }
         return encodedMessage;
     }
 
@@ -339,10 +343,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     // Builds byte array representing the BCAST packet, with corresponding code and message.
-    private byte[] buildBcast(int actionNum, String fileName) {
+    private byte[] buildBcast(int actionNum, String file) {
         byte BCAST_OPCODE = 9;
         // Calculate the length of the byte array
-        int length = 2 + 1 + fileName.length() + 1; // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator.
+        int length = 2 + 1 + file.length() + 1; // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator.
         // Construct the byte array
         byte[] bcastPacket = new byte[length];
         // Encode the opcode
@@ -351,7 +355,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         // Encode the actionNum
         bcastPacket[2] = (byte) actionNum;
         // Encode the filename as UTF-8 bytes
-        byte[] fileNameBytes = fileName.getBytes(StandardCharsets.UTF_8);
+        byte[] fileNameBytes = file.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(fileNameBytes, 0, bcastPacket, 3, fileNameBytes.length);
         // Add zero terminator
         bcastPacket[length - 1] = 0;
