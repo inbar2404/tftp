@@ -3,31 +3,25 @@ package bgu.spl.net.impl.tftp;
 import java.util.HashMap;
 
 public class NameToIdMap {
-    public static HashMap<String, Integer> namesToIds = new HashMap<>();
+    private HashMap<String, Integer> namesToIds;
 
-    // Adding new user logged in (name,id) to the map
-    public static void add(String name, int id) {
-        namesToIds.put(name, id);
+    public NameToIdMap() {
+        this.namesToIds = new HashMap<>();
     }
 
-    public static void remove(int id) {
-        // Iterate over the entries of the HashMap
-        for (HashMap.Entry<String, Integer> entry : namesToIds.entrySet()) {
-            // Check if the entry's value matches the provided id
-            if (entry.getValue() == id) {
-                // If found, remove the entry
-                namesToIds.remove(entry.getKey());
-                // Exit the loop after removing the entry
-                break;
-            }
-        }
+    public void add(String name, int id) {
+        this.namesToIds.put(name, id);
     }
 
-    public static boolean contains(String name) {
-        return namesToIds.containsKey(name);
+    public void remove(int id) {
+        this.namesToIds.values().removeIf(value -> value == id);
     }
 
-    public static boolean contains(int id) {
-        return namesToIds.containsValue(id);
+    public boolean contains(String name) {
+        return this.namesToIds.containsKey(name);
+    }
+
+    public boolean contains(int id) {
+        return this.namesToIds.containsValue(id);
     }
 }

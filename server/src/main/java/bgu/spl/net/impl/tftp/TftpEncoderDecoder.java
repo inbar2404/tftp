@@ -5,14 +5,11 @@ import bgu.spl.net.api.MessageEncoderDecoder;
 import java.util.Arrays;
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
-    // TODO: Maybe c'tor will be better
     private byte[] bytes = new byte[1 << 10]; //start with 1k
-    // Copy of a byte array, but until bytes actual len.
-    private byte[] copyBytes;
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
     private final int OPCODE_LEN = 2;
-    private final byte finishingByte = (byte) 0;
+    private final byte FINISH_BYTE = (byte) 0;
 
     @Override
     public byte[] decodeNextByte(byte nextByte) {
@@ -22,45 +19,27 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         }
         // Find opcode when received 2 bytes
         if (len == OPCODE_LEN) {
-            this.opcode = decodeOpcode();
+            opcode = decodeOpcode();
         }
         // DISC OR DIRQ ARE SPECIAL WITH ONLY 2 BYTES
         else if (len == 1 && (nextByte == (byte) 0x000A || nextByte == (byte) 6)) {
             pushByte(nextByte);
-            this.opcode = decodeOpcode();
+            opcode = decodeOpcode();
         }
 
-        switch (opcode) {
-            case RRQ:
-            case WRQ:
-            case ERROR:
-            case DELRQ:
-            case BCAST:
-            case LOGRQ:
-                if (nextByte == finishingByte) {
-                    // Those opcodes finish with byte 0
-                    copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
-                    len = 0;
-                    return copyBytes;
-                }
-                break;
-            case ACK:
-                if (len == 3) {
-                    // Those opcodes are exactly 4 bytes
-                    pushByte(nextByte);
-                    copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
-                    len = 0;
-                    return copyBytes;
-                }
-                break;
-            case DISC:
-            case DIRQ:
-                // Those opcodes are exactly 2 bytes - only opcode
-                copyBytes = Arrays.copyOfRange(bytes, 0, Math.min(bytes.length, len));
-                len = 0;
-                return copyBytes;
-            default:
+        if (opcode == PacketOpcode.ACK) {
+            if (len == 3) {
+                pushByte(nextByte);
+                return finishDecoding();
+            }
+        } else if (opcode == PacketOpcode.DISC || opcode == PacketOpcode.DIRQ) {
+            return finishDecoding();
+        } else if ((opcode == PacketOpcode.RRQ || opcode == PacketOpcode.WRQ || opcode == PacketOpcode.ERROR ||
+                opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
+                && nextByte == FINISH_BYTE) {
+            return finishDecoding();
         }
+
         pushByte(nextByte);
         // Not a line yet
         return null;
@@ -87,5 +66,11 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         bytes = new byte[1 << 10]; //start with 1k
         len = 0;
         opcode = PacketOpcode.NOT_INIT;
+    }
+
+    private byte[] finishDecoding() {
+        byte[] copyBytes = Arrays.copyOfRange(bytes, 0, len);
+        len = 0;
+        return copyBytes;
     }
 }

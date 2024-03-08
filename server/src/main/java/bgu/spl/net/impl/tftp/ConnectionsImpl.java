@@ -3,7 +3,7 @@ package bgu.spl.net.impl.tftp;
 import bgu.spl.net.srv.ConnectionHandler;
 import bgu.spl.net.srv.Connections;
 
-import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ConnectionsImpl<T> implements Connections<T> {
@@ -35,7 +35,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
         connectedHandlersMap.remove(connectionId);
     }
 
-    public ConcurrentHashMap<Integer, ConnectionHandler<T>> getConnectedHandlersMap() {
-        return connectedHandlersMap;
+    public Set<Integer> getConnectionIds() {
+        return connectedHandlersMap.keySet();
     }
 }

@@ -1,6 +1,6 @@
 package bgu.spl.net.srv;
 
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 
 public interface Connections<T> {
 
@@ -10,5 +10,5 @@ public interface Connections<T> {
 
     void disconnect(int connectionId);
 
-    ConcurrentHashMap<Integer, ConnectionHandler<T>> getConnectedHandlersMap();
+    Set<Integer> getConnectionIds();
 }
