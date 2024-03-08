@@ -25,9 +25,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     private short seqNumReceived;
     private int lastFileStartIndex;
     private LinkedList<String> files;
+    private NameToIdMap nameToIdMap;
 
     @Override
-    public void start(int connectionId, Connections<byte[]> connections) {
+    public void start(int connectionId, Connections<byte[]> connections, NameToIdMap nameToIdMap) {
+        this.nameToIdMap = nameToIdMap;
         this.connectionId = connectionId;
         this.connections = connections;
         this.userHadError = false;
@@ -45,7 +47,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         // Read massage data.
         convertMessage(message);
         // the user is connected only if he his on the mapping and he is not trying to connect now.
-        notConnected = opcode != PacketOpcode.LOGRQ && !NameToIdMap.contains(connectionId);
+        notConnected = ((opcode != PacketOpcode.LOGRQ) && (!nameToIdMap.contains(connectionId)));
         // For our checks after on client - if unrecognized opcode return error.
         if (opcode == PacketOpcode.NOT_INIT) {
             byte[] msg = buildError(4, "Illegal TFTP operation");
@@ -84,8 +86,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     @Override
     public boolean shouldTerminate() {
         if (shouldTerminate) {
-            // Remove user from mapping and connections.
-            NameToIdMap.remove(connectionId);
             this.connections.disconnect(this.connectionId);
         }
         return shouldTerminate;
@@ -108,12 +108,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private void processLOGRQ() {
         byte[] msg;
-        if (NameToIdMap.contains(connectionId)) {
+        if (nameToIdMap.contains(connectionId)) {
             msg = buildError(0, "this user already connected from this socket");
             connections.send(connectionId, msg);
-        } else if (!NameToIdMap.contains(this.arg)) {
+        } else if (!nameToIdMap.contains(this.arg)) {
             // User not exists, connect him.
-            NameToIdMap.add(arg, connectionId);
+            nameToIdMap.add(arg, connectionId);
             msg = buildAck(0);
             connections.send(connectionId, msg);
         } else {
@@ -125,6 +125,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     private void processDISC() {
         // If user disconnects - change shouldTerminate to true for CH to break his loop, and send ack packet to client.
         shouldTerminate = true;
+        nameToIdMap.remove(connectionId);
         connections.send(connectionId, buildAck(0));
     }
 
@@ -144,8 +145,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             // Send ack to the client , successful delete.
             connections.send(connectionId, buildAck(0));
             // Build and send a broadcast message to all connected clients about the deleted file.
-            for (Integer id : connections.getConnectedHandlersMap().keySet()) {
-                if (NameToIdMap.contains(id)) {
+            for (Integer id : connections.getConnectionIds()) {
+                if (nameToIdMap.contains(id)) {
                     connections.send(id, buildBcast(0, arg));
                 }
             }
