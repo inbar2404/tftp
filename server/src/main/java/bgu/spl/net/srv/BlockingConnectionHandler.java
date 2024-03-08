@@ -19,13 +19,15 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private BufferedOutputStream out;
     private volatile boolean connected = true;
     private ConnectionsImpl<T> connections;
+    private NameToIdMap nameToIdMap;
     private int id;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections, int id) {
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections, NameToIdMap nameToIdMap, int id) {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
         this.connections = connections;
+        this.nameToIdMap = nameToIdMap;
         this.id = id;
     }
 
@@ -35,7 +37,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
             int read;
             in = new BufferedInputStream(sock.getInputStream());
             out = new BufferedOutputStream(sock.getOutputStream());
-            NameToIdMap nameToIdMap = new NameToIdMap();
             // Initialize the protocol with the id and the connections list
             protocol.start(id, connections, nameToIdMap);
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {

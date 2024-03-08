@@ -4,6 +4,7 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.impl.tftp.ConnectionsImpl;
+import bgu.spl.net.impl.tftp.NameToIdMap;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -17,6 +18,7 @@ public abstract class BaseServer<T> implements Server<T> {
     private final Supplier<MessageEncoderDecoder<T>> encdecFactory;
     private ServerSocket sock;
     private ConnectionsImpl<T> connections;
+    private NameToIdMap nameToIdMap = new NameToIdMap();
     private int id;
 
     public BaseServer(
@@ -49,6 +51,7 @@ public abstract class BaseServer<T> implements Server<T> {
                         encdecFactory.get(),
                         protocolFactory.get()
                         , connections
+                        , nameToIdMap
                         , id
                 );
                 // Add the client to the connections with unique id

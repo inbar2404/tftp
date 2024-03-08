@@ -41,12 +41,11 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     @Override
     public void process(byte[] message) {
-        // Get the opcode.
-        short opcodeShort = (short) (((short) message[0]) << 8 | (short) (message[1]));
+        // Extract opcode.
+        short opcodeShort = (short) (((short) message[0]) << 8 | (short) (message[1]) & 0x00FF);
         opcode = PacketOpcode.fromShort(opcodeShort);
-        // Read massage data.
         convertMessage(message);
-        // the user is connected only if he his on the mapping and he is not trying to connect now.
+        // the user is connected only if he is on the mapping, and he is not trying to connect now.
         notConnected = ((opcode != PacketOpcode.LOGRQ) && (!nameToIdMap.contains(connectionId)));
         // For our checks after on client - if unrecognized opcode return error.
         if (opcode == PacketOpcode.NOT_INIT) {

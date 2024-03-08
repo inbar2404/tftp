@@ -29,6 +29,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
 
         if (opcode == PacketOpcode.ACK) {
             if (len == 3) {
+                pushByte(nextByte);
                 return finishDecoding();
             }
         } else if (opcode == PacketOpcode.DISC || opcode == PacketOpcode.DIRQ) {
