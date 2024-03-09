@@ -1,7 +1,30 @@
 package bgu.spl.net.impl.tftp;
+
+import java.net.Socket;
+import java.io.IOException;
+
+
 public class TftpClient {
-    //TODO: implement the main logic of the client, when using a thread per client the main logic goes here
-    public static void main(String[] args) {
-        System.out.println("implement me!");
+    public static void main(String[] args) throws Exception {
+        System.out.println("client started!");
+        Socket sock;
+        try {
+            // TODO : CHANGE TO GET THIS FROM USER
+            sock = new Socket("127.0.0.1", 7777);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        BlockingConnectionHandler<byte[]> handler = new BlockingConnectionHandler<>(
+                sock, new TftpClientEncoderDecoder(), new TftpClientProtocol());
+
+
+        // Build and run keyboard thread
+        KeyboardThread keyboardRunnable = new KeyboardThread(handler);
+        Thread keyboardThread = new Thread(keyboardRunnable);
+        keyboardThread.start();
+
     }
 }
+
+
