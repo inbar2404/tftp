@@ -4,6 +4,7 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.srv.Connections;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -27,14 +28,17 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     private int latestIndexData;
     private LinkedList<String> files;
     private NameToIdMap nameToIdMap;
+    private UploadingFiles uploadingFiles;
     private final int MAX_DATA_SIZE = 512;
     private final int DATA_HEADER_SIZE = 6; // 2 bytes opcode + 2 bytes PacketSize + 2 bytes seqNumber
     private String fileName;
+    private String currentUploadFile;
     private byte[] data;
 
     @Override
-    public void start(int connectionId, Connections<byte[]> connections, NameToIdMap nameToIdMap) {
+    public void start(int connectionId, Connections<byte[]> connections, NameToIdMap nameToIdMap, UploadingFiles uploadingFiles) {
         this.nameToIdMap = nameToIdMap;
+        this.uploadingFiles = uploadingFiles;
         this.connectionId = connectionId;
         this.connections = connections;
         this.userHadError = false;
@@ -42,6 +46,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         this.serverFinishedSendingData = false;
         this.seqNumSent = 1;
         this.latestIndexData = 0;
+        this.currentUploadFile = "";
     }
 
     @Override
@@ -79,6 +84,10 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 processAck();
                 break;
             }
+            case DATA: {
+                processDataPacket();
+                break;
+            }
             case WRQ: {
                 processWRQ();
                 break;
@@ -110,6 +119,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             case DELRQ:
                 this.arg = new String(message, 2, message.length - 2);
                 break;
+            case WRQ:
             case RRQ:
                 this.fileName = new String(message, 2, message.length - 2);
                 break;
@@ -117,7 +127,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             case ACK:
                 this.seqNumReceived = (short) (((short) message[2]) << 8 | (short) (message[3]));
                 break;
-
+            case DATA:
+                this.data = Arrays.copyOfRange(message, 6, message.length);
         }
     }
 
@@ -251,21 +262,52 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     public void processWRQ() {
-//        // If user not connected - return error.
-//        if (notConnected) {
-//            userHadError = true;
-//            connections.send(connectionId, buildError(6, "User not logged in"));
-//        } else {
-//            // If file already exists - return error.
-//            File file = new File("./Files/" + arg);
-//            if (file.exists()) {
-//                userHadError = true;
-//                connections.send(connectionId, buildError(6, "File already exists"));
-//            } else {
-//                // Send ack to the client.
-//                connections.send(connectionId, buildAck(0));
-//            }
-//        }
+        if (!notConnected) {
+            File file = new File("./Files/" + fileName);
+            // TODO: Find out - In case I upload file and it is still in process, and I try to upload it again, should I get an error or replace the uploading file?
+            if (file.exists() || uploadingFiles.contains(fileName)) {
+                // If file already exists - return an error.
+                userHadError = true;
+                connections.send(connectionId, buildError(5, "File already exists"));
+            } else {
+                uploadingFiles.add(fileName, connectionId);
+                currentUploadFile = fileName;
+                connections.send(connectionId, buildAck(0));
+            }
+        } else {
+            // If user not connected - return error.
+            userHadError = true;
+            connections.send(connectionId, buildError(6, "User not logged in"));
+        }
+    }
+
+    public void processDataPacket() {
+        // TODO: Check if in more cases than uploading it is arrive here
+        if (!notConnected) {
+            // TODO: Am I missing a check of packet size?
+            if (data != null) {
+                writeData();
+            }
+        } else {
+            userHadError = true;
+            connections.send(connectionId, buildError(6, "User not logged in"));
+        }
+    }
+
+    private void writeData() {
+        try (FileOutputStream out = new FileOutputStream("./Files/" + currentUploadFile)){
+            out.write(data);
+        }
+        catch (IOException e) {
+            // Reset related fields and send error msg.
+            data = null;
+            if(uploadingFiles.contains(currentUploadFile)) {
+                uploadingFiles.remove(currentUploadFile);
+            }
+            currentUploadFile = "";
+            userHadError = true;
+            connections.send(connectionId, buildError(2, "Access violation"));
+        }
     }
 
     // Downloads the file from the server to the client.
@@ -290,7 +332,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private byte[] buildDataPacket() {
         int requireNumberOfPackets = data.length / MAX_DATA_SIZE + 1;
-        setServerFinishedSendingData(requireNumberOfPackets-seqNumSent < 1);
+        setServerFinishedSendingData(requireNumberOfPackets - seqNumSent < 1);
 
         int dataSize = Math.min(MAX_DATA_SIZE, data.length - latestIndexData);
         int opcode = 3; // DATA opcode

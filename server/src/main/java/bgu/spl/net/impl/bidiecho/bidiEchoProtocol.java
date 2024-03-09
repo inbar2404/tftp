@@ -2,6 +2,7 @@ package bgu.spl.net.impl.bidiecho;
 
 import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.impl.tftp.NameToIdMap;
+import bgu.spl.net.impl.tftp.UploadingFiles;
 import bgu.spl.net.srv.Connections;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,7 +19,7 @@ public class bidiEchoProtocol implements BidiMessagingProtocol<String> {
     private Connections<String> connections;
 
     @Override
-    public void start(int connectionId, Connections<String> connections, NameToIdMap nameToIdMap) {
+    public void start(int connectionId, Connections<String> connections, NameToIdMap nameToIdMap, UploadingFiles uploadingFiles ) {
         this.shouldTerminate = false;
         this.connectionId = connectionId;
         this.connections = connections;

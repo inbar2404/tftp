@@ -5,11 +5,12 @@ import bgu.spl.net.api.MessageEncoderDecoder;
 import java.util.Arrays;
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
-    private byte[] bytes = new byte[1 << 10]; //start with 1k
+    private byte[] bytes = new byte[512];
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
     private final int OPCODE_LEN = 2;
     private final byte FINISH_BYTE = (byte) 0;
+    private int currentPacketSize = 0;
 
     @Override
     public byte[] decodeNextByte(byte nextByte) {
@@ -38,6 +39,20 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                 opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
                 && nextByte == FINISH_BYTE) {
             return finishDecoding();
+        } else if (opcode == PacketOpcode.DATA) {
+            // TODO: Consult with BAR how to fix it and then do a lot of other checks
+            if(len == 4) {
+                pushByte(nextByte);
+                currentPacketSize = (short) (((short) bytes[2]) << 8 | (short) (bytes[3]));
+            }
+            if(len > 4 && len == 4 + currentPacketSize) {
+                pushByte(nextByte);
+            }
+            if (len >= 4 + currentPacketSize) {
+                byte[] data = new byte[currentPacketSize];
+                System.arraycopy(bytes, 4, data, 0, currentPacketSize);
+                return data;
+            }
         }
 
         pushByte(nextByte);
