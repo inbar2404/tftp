@@ -22,21 +22,21 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private NameToIdMap nameToIdMap;
     private int id;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections, NameToIdMap nameToIdMap, int id) {
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections, NameToIdMap nameToIdMap, int id) throws IOException {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
         this.connections = connections;
         this.nameToIdMap = nameToIdMap;
         this.id = id;
+        in = new BufferedInputStream(sock.getInputStream());
+        out = new BufferedOutputStream(sock.getOutputStream());
     }
 
     @Override
     public void run() {
         try (Socket sock = this.sock) { //just for automatic closing
             int read;
-            in = new BufferedInputStream(sock.getInputStream());
-            out = new BufferedOutputStream(sock.getOutputStream());
             // Initialize the protocol with the id and the connections list
             protocol.start(id, connections, nameToIdMap);
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {

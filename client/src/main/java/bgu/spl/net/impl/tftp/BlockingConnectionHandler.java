@@ -44,6 +44,7 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
     }
 
+    // TODO : check if need reset the threads
     @Override
     public void close() throws IOException {
         connected = false;

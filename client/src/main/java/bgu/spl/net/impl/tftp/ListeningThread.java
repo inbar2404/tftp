@@ -1,8 +1,8 @@
 package bgu.spl.net.impl.tftp;
 
 public class ListeningThread implements Runnable{
-    BlockingConnectionHandler<byte[]> handler;
-    boolean shouldTerminate;
+    private BlockingConnectionHandler<byte[]> handler;
+    private boolean shouldTerminate;
 
     public ListeningThread(BlockingConnectionHandler<byte[]> handler) {
         this.handler = handler;

@@ -5,8 +5,8 @@ import java.net.Socket;
 import java.util.Scanner;
 
 public class KeyboardThread implements Runnable {
-    BlockingConnectionHandler<byte[]> handler;
-    boolean shouldTerminate;
+    private BlockingConnectionHandler<byte[]> handler;
+    private boolean shouldTerminate;
 
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
         this.handler = handler;
@@ -16,6 +16,7 @@ public class KeyboardThread implements Runnable {
     /**
      * Main lifecycle.
      */
+   // TODO : CHECK WHEN NEEDS INTERRUPT
     public void run() {
         Scanner scanner = new Scanner(System.in);
         while (!shouldTerminate) {
@@ -34,7 +35,6 @@ public class KeyboardThread implements Runnable {
 
         switch (userCommand) {
             case "LOGRQ":
-                // build LOGRQ msg
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
             case "DISC":
 

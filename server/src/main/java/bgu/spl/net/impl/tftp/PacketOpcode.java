@@ -14,16 +14,16 @@ public enum PacketOpcode {
     BCAST((short) 9),
     DISC((short) 10);
 
-    private final short shortValue;
+    private final short SHORT_VALUE;
 
     PacketOpcode(short shortValue) {
-        this.shortValue = shortValue;
+        this.SHORT_VALUE = shortValue;
     }
 
     public static PacketOpcode fromShort(short shortValue) {
         // Converts opcode from short to PacketOpcode
         for (PacketOpcode opcode : values()) {
-            if (opcode.shortValue == shortValue) {
+            if (opcode.SHORT_VALUE == shortValue) {
                 return opcode;
             }
         }

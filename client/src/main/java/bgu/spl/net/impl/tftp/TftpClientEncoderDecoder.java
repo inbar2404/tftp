@@ -3,7 +3,7 @@ package bgu.spl.net.impl.tftp;
 import bgu.spl.net.api.MessageEncoderDecoder;
 
 import java.util.Arrays;
-
+// TODO : update class from server when Inbar finished
 public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     private byte[] bytes = new byte[1 << 10]; //start with 1k
     private int len = 0;
