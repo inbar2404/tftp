@@ -19,10 +19,19 @@ public class TftpClient {
                 sock, new TftpClientEncoderDecoder(), new TftpClientProtocol());
 
 
-        // Build and run keyboard thread
+        // Build keyboard thread
         KeyboardThread keyboardRunnable = new KeyboardThread(handler);
         Thread keyboardThread = new Thread(keyboardRunnable);
-        keyboardThread.start();
+
+        // Build listening thread
+        ListeningThread listeningRunnable = new ListeningThread(handler);
+        Thread listeningThread = new Thread(listeningRunnable);
+
+        while(!keyboardThread.isInterrupted())
+        {
+            keyboardThread.run();
+            listeningThread.run();
+        }
 
     }
 }

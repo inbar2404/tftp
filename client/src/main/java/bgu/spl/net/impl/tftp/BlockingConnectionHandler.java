@@ -24,23 +24,19 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
         in = new BufferedInputStream(sock.getInputStream());
         out = new BufferedOutputStream(sock.getOutputStream());
     }
-    // TODO : check synchronize cases
-    public synchronized void receive() {
-        try (Socket sock = this.sock) { //just for automatic closing
-            int read;
-            while (!protocol.shouldTerminate() && connected) {
-                if ((read = in.read()) >= 0) {
-                    T nextMessage = encdec.decodeNextByte((byte) read);
-                    if (nextMessage != null) {
-                        protocol.process(nextMessage);
-                    }
-                }
-            }
-            close();
 
-        } catch (IOException ex) {
-            ex.printStackTrace();
+    // TODO : check synchronize cases
+    public synchronized void receive() throws IOException {
+        int read;
+        while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
+            T nextMessage = encdec.decodeNextByte((byte) read);
+            if (nextMessage != null) {
+                protocol.process(nextMessage);
+                break;
+            }
+
         }
+
 
     }
 

@@ -1,5 +1,7 @@
 package bgu.spl.net.impl.tftp;
 
+import java.io.IOException;
+
 public class ListeningThread implements Runnable{
     private BlockingConnectionHandler<byte[]> handler;
     private boolean shouldTerminate;
@@ -11,7 +13,11 @@ public class ListeningThread implements Runnable{
 
 
     public void run() {
-        handler.receive();
+        try {
+            handler.receive();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
     }
 }

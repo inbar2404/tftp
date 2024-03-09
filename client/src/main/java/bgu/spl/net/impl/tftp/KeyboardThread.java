@@ -19,13 +19,10 @@ public class KeyboardThread implements Runnable {
    // TODO : CHECK WHEN NEEDS INTERRUPT
     public void run() {
         Scanner scanner = new Scanner(System.in);
-        while (!shouldTerminate) {
-            byte[] msg = processUserInput(scanner.nextLine());
+        byte[] msg = processUserInput(scanner.nextLine());
 
-            handler.send(msg);
+        handler.send(msg);
 
-            // Wait for the Listening thread, to notify he has finished processing the packets sent from the server.
-        }
     }
 
 
