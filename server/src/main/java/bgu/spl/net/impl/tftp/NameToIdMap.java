@@ -1,12 +1,12 @@
 package bgu.spl.net.impl.tftp;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NameToIdMap {
-    private HashMap<String, Integer> namesToIds;
+    private ConcurrentHashMap<String, Integer> namesToIds;
 
     public NameToIdMap() {
-        this.namesToIds = new HashMap<>();
+        this.namesToIds = new ConcurrentHashMap<>();
     }
 
     public void add(String name, int id) {

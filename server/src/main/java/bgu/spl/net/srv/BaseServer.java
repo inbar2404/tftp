@@ -2,9 +2,9 @@ package bgu.spl.net.srv;
 
 import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.api.MessageEncoderDecoder;
-import bgu.spl.net.api.MessagingProtocol;
 import bgu.spl.net.impl.tftp.ConnectionsImpl;
 import bgu.spl.net.impl.tftp.NameToIdMap;
+import bgu.spl.net.impl.tftp.UploadingFiles;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -19,6 +19,7 @@ public abstract class BaseServer<T> implements Server<T> {
     private ServerSocket sock;
     private ConnectionsImpl<T> connections;
     private NameToIdMap nameToIdMap = new NameToIdMap();
+    private UploadingFiles uploadingFiles = new UploadingFiles();
     private int id;
 
     public BaseServer(
@@ -37,7 +38,6 @@ public abstract class BaseServer<T> implements Server<T> {
 
     @Override
     public void serve() {
-
         try (ServerSocket serverSock = new ServerSocket(port)) {
             System.out.println("Server started");
 
@@ -52,6 +52,7 @@ public abstract class BaseServer<T> implements Server<T> {
                         protocolFactory.get()
                         , connections
                         , nameToIdMap
+                        , uploadingFiles
                         , id
                 );
                 // Add the client to the connections with unique id

@@ -5,11 +5,12 @@ import bgu.spl.net.api.MessageEncoderDecoder;
 import java.util.Arrays;
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
-    private byte[] bytes = new byte[1 << 10]; //start with 1k
+    private byte[] bytes = new byte[518];
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
     private final int OPCODE_LEN = 2;
     private final byte FINISH_BYTE = (byte) 0;
+    private int currentPacketSize = 0;
 
     @Override
     public byte[] decodeNextByte(byte nextByte) {
@@ -38,6 +39,18 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                 opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
                 && nextByte == FINISH_BYTE) {
             return finishDecoding();
+        } else if (opcode == PacketOpcode.DATA) {
+            // Handle case of opcode = DATA
+            if(len == 4) {
+                currentPacketSize = (short) (((short) bytes[2] & 0x00FF) << 8 | (short) (bytes[3] & 0x00FF));
+            }
+            if (len >= 5 + currentPacketSize) {
+                pushByte(nextByte);
+                byte[] data = new byte[currentPacketSize+6];
+                System.arraycopy(bytes, 0, data, 0, currentPacketSize+6);
+                len = 0;
+                return data;
+            }
         }
 
         pushByte(nextByte);
@@ -47,7 +60,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
 
     // Decodes the first 2 bytes to find the opcode
     private PacketOpcode decodeOpcode() {
-        short opcode = (short) (((short) bytes[0]) << 8 | (short) (bytes[1]));
+        short opcode = (short) (((short) bytes[0] & 0x00FF) << 8 | (short) (bytes[1] & 0x00FF));
         return PacketOpcode.fromShort(opcode);
     }
 

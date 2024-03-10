@@ -4,6 +4,7 @@ import bgu.spl.net.api.BidiMessagingProtocol;
 import bgu.spl.net.api.MessageEncoderDecoder;
 import bgu.spl.net.impl.tftp.ConnectionsImpl;
 import bgu.spl.net.impl.tftp.NameToIdMap;
+import bgu.spl.net.impl.tftp.UploadingFiles;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -20,14 +21,18 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     private volatile boolean connected = true;
     private ConnectionsImpl<T> connections;
     private NameToIdMap nameToIdMap;
+    private UploadingFiles uploadingFiles;
     private int id;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections, NameToIdMap nameToIdMap, int id) throws IOException {
+
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, BidiMessagingProtocol<T> protocol, ConnectionsImpl<T> connections,
+                                     NameToIdMap nameToIdMap, UploadingFiles uploadingFiles, int id) throws IOException {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
         this.connections = connections;
         this.nameToIdMap = nameToIdMap;
+        this.uploadingFiles = uploadingFiles;
         this.id = id;
         in = new BufferedInputStream(sock.getInputStream());
         out = new BufferedOutputStream(sock.getOutputStream());
@@ -38,7 +43,7 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
         try (Socket sock = this.sock) { //just for automatic closing
             int read;
             // Initialize the protocol with the id and the connections list
-            protocol.start(id, connections, nameToIdMap);
+            protocol.start(id, connections, nameToIdMap, uploadingFiles);
             while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
                 T nextMessage = encdec.decodeNextByte((byte) read);
                 if (nextMessage != null) {
@@ -64,7 +69,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     public void send(T msg) {
         try {
             if (msg != null) {
-                // TODO: Needed more check than out because out might not be init because of the run - zoom 24:30
                 out.write(encdec.encode(msg));
                 out.flush();
             }
