@@ -7,6 +7,7 @@ import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.List;
 
 public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
 
@@ -16,11 +17,14 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
     private BufferedInputStream in;
     private BufferedOutputStream out;
     private volatile boolean connected = true;
+    public boolean userLoggedIn = false;
 
-    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, MessagingProtocol<T> protocol) throws IOException {
+    private List<Thread> threads;
+    public BlockingConnectionHandler(Socket sock, MessageEncoderDecoder<T> reader, MessagingProtocol<T> protocol, List<Thread> threads) throws IOException {
         this.sock = sock;
         this.encdec = reader;
         this.protocol = protocol;
+        this.threads = threads;
         in = new BufferedInputStream(sock.getInputStream());
         out = new BufferedOutputStream(sock.getOutputStream());
     }
@@ -28,14 +32,14 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
     // TODO : check synchronize cases
     public synchronized void receive() throws IOException {
         int read;
+        protocol.setShouldTerminate(false);
         while (!protocol.shouldTerminate() && connected && (read = in.read()) >= 0) {
             T nextMessage = encdec.decodeNextByte((byte) read);
             if (nextMessage != null) {
-                protocol.process(nextMessage);
-                break;
+                userLoggedIn = protocol.process(nextMessage);
             }
-
         }
+        this.notifyAll();
 
 
     }
@@ -45,7 +49,9 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
     public void close() throws IOException {
         connected = false;
         sock.close();
-        Thread.currentThread().interrupt();
+        for (Thread thread : threads) {
+            thread.interrupt();
+        }
     }
 
     @Override
@@ -58,5 +64,6 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+        notifyAll();
     }
 }

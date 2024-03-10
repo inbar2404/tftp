@@ -8,6 +8,8 @@ public class KeyboardThread implements Runnable {
     private BlockingConnectionHandler<byte[]> handler;
     private boolean shouldTerminate;
 
+    public static int packetsNum = 1;
+
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
         this.handler = handler;
         this.shouldTerminate = false;
@@ -16,25 +18,62 @@ public class KeyboardThread implements Runnable {
     /**
      * Main lifecycle.
      */
-   // TODO : CHECK WHEN NEEDS INTERRUPT
+    // TODO : CHECK WHEN NEEDS INTERRUPT
     public void run() {
         Scanner scanner = new Scanner(System.in);
-        byte[] msg = processUserInput(scanner.nextLine());
+        while (!shouldTerminate && !Thread.currentThread().isInterrupted()) {
+            synchronized (handler) {
+                byte[] msg = processUserInput(scanner.nextLine());
+                try {
+                    if(!shouldTerminate){
+                    handler.send(msg);
+                    handler.wait();}
+                } catch (InterruptedException ignored) {
+                    break;
+                }
+            }
 
-        handler.send(msg);
+        }
+        try {
+            handler.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("finished KT ");
 
     }
 
 
     private byte[] processUserInput(String userInput) {
         int spaceIndex = userInput.indexOf(' ');
-        String userCommand = userInput.substring(0, spaceIndex);
+        String userCommand;
+        if (spaceIndex != -1) {
+            userCommand = userInput.substring(0, spaceIndex);
+        } else {
+            userCommand = userInput;
+        }
+
 
         switch (userCommand) {
-            case "LOGRQ":
+            case "LOGRQ": {
+                packetsNum = 1;
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
+            }
             case "DISC":
-
+                packetsNum = 1;
+                if (!handler.userLoggedIn) {
+                    System.out.println("Closing");
+                    try {
+                        handler.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+                shouldTerminate = true;
+                return buildDISC();
+            case "DELRQ":
+                packetsNum = 2;
+                return buildDELRQ(userInput.substring(spaceIndex + 1));
         }
 
         return null;
@@ -53,5 +92,23 @@ public class KeyboardThread implements Runnable {
         return fullMsg;
     }
 
+    private byte[] buildDISC() {
+        byte[] fullMsg = new byte[2];
+        fullMsg[0] = 0;
+        fullMsg[1] = 10;
+        return fullMsg;
+    }
 
+    private byte[] buildDELRQ(String fileNameToDelete) {
+        byte[] fileNameToDeleteBytes = fileNameToDelete.getBytes();
+
+        // Insert opcode of logrq to the msg , andd a 0 terminator
+        byte[] fullMsg = new byte[fileNameToDeleteBytes.length + 3];
+        fullMsg[0] = 0;
+        fullMsg[1] = 8;
+        fullMsg[fullMsg.length - 1] = 0;
+
+        System.arraycopy(fileNameToDeleteBytes, 0, fullMsg, 2, fileNameToDeleteBytes.length);
+        return fullMsg;
+    }
 }

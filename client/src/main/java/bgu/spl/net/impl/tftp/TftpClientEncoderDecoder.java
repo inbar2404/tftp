@@ -58,6 +58,7 @@ public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     @Override
     public byte[] encode(byte[] message) {
         return message;
+
     }
 
     private void pushByte(byte nextByte) {

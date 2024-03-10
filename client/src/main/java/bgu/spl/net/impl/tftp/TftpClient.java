@@ -2,6 +2,8 @@ package bgu.spl.net.impl.tftp;
 
 import java.net.Socket;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class TftpClient {
@@ -15,10 +17,18 @@ public class TftpClient {
             throw new RuntimeException(e);
         }
 
+
+
+
+
+
+        List<Thread> threads = new ArrayList<>();
+
+
+
+
         BlockingConnectionHandler<byte[]> handler = new BlockingConnectionHandler<>(
-                sock, new TftpClientEncoderDecoder(), new TftpClientProtocol());
-
-
+                sock, new TftpClientEncoderDecoder(), new TftpClientProtocol(),threads);
         // Build keyboard thread
         KeyboardThread keyboardRunnable = new KeyboardThread(handler);
         Thread keyboardThread = new Thread(keyboardRunnable);
@@ -26,12 +36,11 @@ public class TftpClient {
         // Build listening thread
         ListeningThread listeningRunnable = new ListeningThread(handler);
         Thread listeningThread = new Thread(listeningRunnable);
+        threads.add(keyboardThread);
+        threads.add(listeningThread);
 
-        while(!keyboardThread.isInterrupted())
-        {
-            keyboardThread.run();
-            listeningThread.run();
-        }
+        keyboardThread.start();
+        listeningThread.start();
 
     }
 }

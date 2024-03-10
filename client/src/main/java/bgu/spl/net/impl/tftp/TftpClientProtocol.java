@@ -2,18 +2,16 @@ package bgu.spl.net.impl.tftp;
 
 import bgu.spl.net.api.MessagingProtocol;
 
-import java.util.LinkedList;
 
 public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     // Enum class represent the operation code of the given packet.
     private PacketOpcode opcode;
-    private boolean shouldTerminate = false;
+    private boolean shouldTerminate ;
     private short seqNumReceived;
     private int errorNumber;
     private String errorMsg;
-
     @Override
-    public void process(byte[] message) {
+    public boolean process(byte[] message) {
         // Extract opcode.
         short opcodeShort = (short) (((short) message[0]) << 8 | (short) (message[1]) & 0x00FF);
         opcode = PacketOpcode.fromShort(opcodeShort);
@@ -28,6 +26,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
                 break;
             }
         }
+        return true;
 
     }
 
@@ -45,15 +44,27 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
 
     private void processAck() {
         System.out.println("ACK " + seqNumReceived);
+        if(KeyboardThread.packetsNum == 1)
+            shouldTerminate =true;
+        else
+            KeyboardThread.packetsNum--;
+        // TODO : CHECK HOW TO TELL THC CH TO NOT TERMINATE WHEN RECEIVING DATA PACKETS
+
     }
 
     private void processError() {
         System.out.println("Error " + errorNumber + " " + errorMsg);
+        shouldTerminate =true;
+
     }
 
+    public void setShouldTerminate(boolean shouldTer)
+    {
+        this.shouldTerminate=shouldTer;
+    }
     @Override
     public boolean shouldTerminate() {
-        return false;
+        return shouldTerminate;
     }
 
 
