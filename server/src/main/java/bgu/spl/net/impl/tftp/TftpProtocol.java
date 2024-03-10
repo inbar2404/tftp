@@ -280,7 +280,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             setLatestIndexData(0);
             setServerFinishedSendingData(false);
             setFiles(null);
-            setData(null);
+            data = new byte[0];
         }
     }
 
@@ -475,9 +475,5 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     private void setFiles(LinkedList<String> value) {
         files = value;
-    }
-
-    private void setData(byte[] data) {
-        this.data = data;
     }
 }
