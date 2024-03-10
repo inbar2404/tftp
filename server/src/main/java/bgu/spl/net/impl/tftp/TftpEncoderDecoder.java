@@ -5,7 +5,7 @@ import bgu.spl.net.api.MessageEncoderDecoder;
 import java.util.Arrays;
 
 public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
-    private byte[] bytes = new byte[512];
+    private byte[] bytes = new byte[518];
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
     private final int OPCODE_LEN = 2;
