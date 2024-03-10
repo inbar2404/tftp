@@ -3,6 +3,7 @@ package bgu.spl.net.impl.tftp;
 import bgu.spl.net.api.MessageEncoderDecoder;
 
 import java.util.Arrays;
+
 // TODO : update class from server when Inbar finished
 public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     private byte[] bytes = new byte[1 << 10]; //start with 1k
@@ -34,9 +35,12 @@ public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
             }
         } else if (opcode == PacketOpcode.DISC || opcode == PacketOpcode.DIRQ) {
             return finishDecoding();
-        } else if ((opcode == PacketOpcode.RRQ || opcode == PacketOpcode.WRQ || opcode == PacketOpcode.ERROR ||
+        } else if ((opcode == PacketOpcode.RRQ || opcode == PacketOpcode.WRQ ||
                 opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
                 && nextByte == FINISH_BYTE) {
+            return finishDecoding();
+        }
+        else if (opcode == PacketOpcode.ERROR && nextByte == FINISH_BYTE && len > 3) {
             return finishDecoding();
         }
 
@@ -47,13 +51,14 @@ public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
 
     // Decodes the first 2 bytes to find the opcode
     private PacketOpcode decodeOpcode() {
-        short opcode = (short) (((short) bytes[0]) << 8 | (short) (bytes[1]));
+        short opcode = (short) (((short) bytes[0]) << 8 | (short) (bytes[1]) & 0x00FF);
         return PacketOpcode.fromShort(opcode);
     }
 
     @Override
     public byte[] encode(byte[] message) {
         return message;
+
     }
 
     private void pushByte(byte nextByte) {
