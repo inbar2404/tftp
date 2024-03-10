@@ -15,7 +15,6 @@ public enum PacketOpcode {
     DISC((short) 10);
 
     private final short SHORT_VALUE;
-
     PacketOpcode(short shortValue) {
         this.SHORT_VALUE = shortValue;
     }
