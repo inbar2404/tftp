@@ -24,6 +24,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     private boolean notConnected;
     private boolean serverFinishedSendingData;
     private int seqNumSent;
+    private int currentPacketSize;
     private short seqNumReceived;
     private int latestIndexData;
     private LinkedList<String> files;
@@ -128,6 +129,8 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 this.seqNumReceived = (short) (((short) message[2]) << 8 | (short) (message[3]));
                 break;
             case DATA:
+                this.seqNumReceived = (short) (((short) message[4]) << 8 | (short) (message[5]));
+                this.currentPacketSize = (short) (((short) message[2]) << 8 | (short) (message[3]));
                 this.data = Arrays.copyOfRange(message, 6, message.length);
         }
     }
@@ -282,11 +285,39 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     public void processDataPacket() {
-        // TODO: Check if in more cases than uploading it is arrive here
+        // TODO: Understand with Bar why it doesn't return the next data packet
+        System.out.println("packet size- " + currentPacketSize);
+        System.out.println("seqnumsent: " + seqNumSent);
+        System.out.println("data: " + data);
+
         if (!notConnected) {
-            // TODO: Am I missing a check of packet size?
-            if (data != null) {
+            if (currentPacketSize == MAX_DATA_SIZE) {       // TODO: Check - is it work in case last packet is somehow 512?
+                connections.send(connectionId, buildAck(seqNumSent));
+                seqNumSent++;
+            } else if (data != null) {
+                if (currentPacketSize > MAX_DATA_SIZE) {
+                    userHadError = true;
+                    connections.send(connectionId, buildError(0, "Not defined error"));
+                }
                 writeData();
+                connections.send(connectionId, buildAck(seqNumSent));
+                // Build and send a broadcast message to all connected clients about the deleted file.
+                for (Integer id : connections.getConnectionIds()) {
+                    if (nameToIdMap.contains(id)) {
+                        connections.send(id, buildBcast(1, currentUploadFile));
+                    }
+                }
+                // Reset related fields
+                seqNumSent = 1;
+                currentPacketSize = 0;
+                if(uploadingFiles.contains(currentUploadFile)) {
+                    uploadingFiles.remove(currentUploadFile);
+                }
+                currentUploadFile = "";
+            }
+            else {
+                userHadError = true;
+                connections.send(connectionId, buildError(0, "Not defined error"));
             }
         } else {
             userHadError = true;
@@ -295,13 +326,12 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     private void writeData() {
-        try (FileOutputStream out = new FileOutputStream("./Files/" + currentUploadFile)){
+        try (FileOutputStream out = new FileOutputStream("./Files/" + currentUploadFile)) {
             out.write(data);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             // Reset related fields and send error msg.
             data = null;
-            if(uploadingFiles.contains(currentUploadFile)) {
+            if (uploadingFiles.contains(currentUploadFile)) {
                 uploadingFiles.remove(currentUploadFile);
             }
             currentUploadFile = "";

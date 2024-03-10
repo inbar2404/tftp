@@ -7,7 +7,6 @@ import bgu.spl.net.srv.Connections;
 
 import java.util.concurrent.ConcurrentHashMap;
 
-// TODO: This is what he did in the zoom but I'm not sure its the best solution
 class holder {
     static ConcurrentHashMap<Integer, Boolean> ids_login = new ConcurrentHashMap<>();
 }
@@ -28,7 +27,6 @@ public class bidiEchoProtocol implements BidiMessagingProtocol<String> {
 
     @Override
     public void process(String msg) {
-        // TODO: I think refactor is needed - that's what he did in the zoom
         shouldTerminate = "bye".equals(msg);
         System.out.println("[" + connectionId + "]: " + msg);
         String echo = createEcho(msg);

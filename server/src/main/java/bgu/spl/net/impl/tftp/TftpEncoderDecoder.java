@@ -40,17 +40,14 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
                 && nextByte == FINISH_BYTE) {
             return finishDecoding();
         } else if (opcode == PacketOpcode.DATA) {
-            // TODO: Consult with BAR how to fix it and then do a lot of other checks
+            // Handle case of opcode = DATA
             if(len == 4) {
-                pushByte(nextByte);
                 currentPacketSize = (short) (((short) bytes[2]) << 8 | (short) (bytes[3]));
             }
-            if(len > 4 && len == 4 + currentPacketSize) {
+            if (len >= 5 + currentPacketSize) {
                 pushByte(nextByte);
-            }
-            if (len >= 4 + currentPacketSize) {
-                byte[] data = new byte[currentPacketSize];
-                System.arraycopy(bytes, 4, data, 0, currentPacketSize);
+                byte[] data = new byte[currentPacketSize+6];
+                System.arraycopy(bytes, 0, data, 0, currentPacketSize+6);
                 return data;
             }
         }
