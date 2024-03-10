@@ -287,7 +287,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     public void processWRQ() {
         if (!notConnected) {
             File file = new File("./Files/" + fileName);
-            // TODO: Ask in the forum - In case I upload file and it is still in process, and I try to upload it again, should I get an error or replace the uploading file?
             if (file.exists() || uploadingFiles.contains(fileName)) {
                 // If file already exists - return an error.
                 userHadError = true;
@@ -306,7 +305,6 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
 
     public void processDataPacket() {
         if (!notConnected) {
-            System.out.println(currentPacketSize);
             // In case there is more than one packet in the sequence, and it is not the last packet
             if (currentPacketSize == MAX_DATA_SIZE) {
                 connections.send(connectionId, buildAck(seqNumSent));
