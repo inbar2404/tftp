@@ -48,15 +48,16 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         this.seqNumSent = 1;
         this.latestIndexData = 0;
         this.currentUploadFile = "";
+        this.data = new byte[0];
     }
 
     @Override
     public void process(byte[] message) {
         // Extract opcode.
-        short opcodeShort = (short) (((short) message[0]) << 8 | (short) (message[1]) & 0x00FF);
+        short opcodeShort = (short) (((short) message[0] & 0x00FF) << 8 | (short) (message[1] & 0x00FF));
         opcode = PacketOpcode.fromShort(opcodeShort);
         convertMessage(message);
-        // the user is connected only if he is on the mapping, and he is not trying to connect now.
+        // The user is connected only if he is on the mapping, and he is not trying to connect now.
         notConnected = ((opcode != PacketOpcode.LOGRQ) && (!nameToIdMap.contains(connectionId)));
         // For our checks after on client - if unrecognized opcode return error.
         if (opcode == PacketOpcode.NOT_INIT) {
@@ -126,12 +127,24 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 break;
             // In this case arg is the seqNumReceived.
             case ACK:
-                this.seqNumReceived = (short) (((short) message[2]) << 8 | (short) (message[3]));
+                this.seqNumReceived = (short) (((short) message[2] & 0x00FF) << 8 | (short) (message[3] & 0x00FF));
                 break;
             case DATA:
-                this.seqNumReceived = (short) (((short) message[4]) << 8 | (short) (message[5]));
-                this.currentPacketSize = (short) (((short) message[2]) << 8 | (short) (message[3]));
-                this.data = Arrays.copyOfRange(message, 6, message.length);
+                this.seqNumReceived = (short) (((short) message[4] & 0x00FF) << 8 | (short) (message[5] & 0x00FF));
+                this.currentPacketSize = (short) (((short) message[2] & 0x00FF) << 8 | (short) (message[3] & 0x00FF));
+                byte[] currentData = Arrays.copyOfRange(message, 6, message.length);
+                if(this.data.length == 0) {
+                    this.data = currentData;
+                } else {
+                    int newDataLength = data.length + currentData.length;
+                    byte[] newData = new byte[newDataLength];
+                    System.arraycopy(data, 0, newData, 0, data.length);
+                    System.arraycopy(currentData, 0, newData, data.length, currentData.length);
+                    data = newData;
+                }
+                // Update latestIndexData for next data packet
+                setLatestIndexData(latestIndexData + currentData.length);
+                break;
         }
     }
 
@@ -152,10 +165,17 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     private void processDISC() {
-        // If user disconnects - change shouldTerminate to true for CH to break his loop, and send ack packet to client.
-        shouldTerminate = true;
-        nameToIdMap.remove(connectionId);
-        connections.send(connectionId, buildAck(0));
+        if (notConnected) {
+            // If user not connected - return error.
+            userHadError = true;
+            connections.send(connectionId, buildError(6, "User not logged in"));
+        } else {
+            // If user disconnects - change shouldTerminate to true for CH to break his loop, and send ack packet to client.
+            shouldTerminate = true;
+            connections.send(connectionId, buildAck(0));
+            nameToIdMap.remove(connectionId);
+            uploadingFiles.removeByConnectionId(connectionId);
+        }
     }
 
     private void processDELRQ() {
@@ -267,7 +287,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     public void processWRQ() {
         if (!notConnected) {
             File file = new File("./Files/" + fileName);
-            // TODO: Find out - In case I upload file and it is still in process, and I try to upload it again, should I get an error or replace the uploading file?
+            // TODO: Ask in the forum - In case I upload file and it is still in process, and I try to upload it again, should I get an error or replace the uploading file?
             if (file.exists() || uploadingFiles.contains(fileName)) {
                 // If file already exists - return an error.
                 userHadError = true;
@@ -285,37 +305,38 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     }
 
     public void processDataPacket() {
-        // TODO: Understand with Bar why it doesn't return the next data packet
-        System.out.println("packet size- " + currentPacketSize);
-        System.out.println("seqnumsent: " + seqNumSent);
-        System.out.println("data: " + data);
-
         if (!notConnected) {
-            if (currentPacketSize == MAX_DATA_SIZE) {       // TODO: Check - is it work in case last packet is somehow 512?
+            System.out.println(currentPacketSize);
+            // In case there is more than one packet in the sequence, and it is not the last packet
+            if (currentPacketSize == MAX_DATA_SIZE) {
                 connections.send(connectionId, buildAck(seqNumSent));
                 seqNumSent++;
             } else if (data != null) {
+                // In case it is the lase packet in the sequence
                 if (currentPacketSize > MAX_DATA_SIZE) {
                     userHadError = true;
                     connections.send(connectionId, buildError(0, "Not defined error"));
                 }
                 writeData();
                 connections.send(connectionId, buildAck(seqNumSent));
+
                 // Build and send a broadcast message to all connected clients about the deleted file.
                 for (Integer id : connections.getConnectionIds()) {
                     if (nameToIdMap.contains(id)) {
                         connections.send(id, buildBcast(1, currentUploadFile));
                     }
                 }
+
                 // Reset related fields
                 seqNumSent = 1;
                 currentPacketSize = 0;
-                if(uploadingFiles.contains(currentUploadFile)) {
+                latestIndexData = 0;
+                if (uploadingFiles.contains(currentUploadFile)) {
                     uploadingFiles.remove(currentUploadFile);
                 }
+                data = new byte[0];
                 currentUploadFile = "";
-            }
-            else {
+            } else {
                 userHadError = true;
                 connections.send(connectionId, buildError(0, "Not defined error"));
             }
@@ -330,7 +351,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
             out.write(data);
         } catch (IOException e) {
             // Reset related fields and send error msg.
-            data = null;
+            data = new byte[0];
             if (uploadingFiles.contains(currentUploadFile)) {
                 uploadingFiles.remove(currentUploadFile);
             }
@@ -389,8 +410,15 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         // If seq number is 0 - return encoded msg
         if (seqNum == 0) {
             return new byte[]{0, 4, 0, 0};
+        } else {
+            // In case of processing data packets - return encoded msg with the given seqNum
+            byte[] encodedMessage = new byte[4];
+            encodedMessage[0] = 0;
+            encodedMessage[1] = 4;
+            encodedMessage[2] = (byte) (seqNum >> 8);
+            encodedMessage[3] = (byte) seqNum;
+            return encodedMessage;
         }
-        return null;
     }
 
     // Builds byte array representing the error packet, with corresponding code and message.
@@ -417,18 +445,19 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     // Builds byte array representing the BCAST packet, with corresponding code and message.
     private byte[] buildBcast(int actionNum, String file) {
         byte BCAST_OPCODE = 9;
-        // Calculate the length of the byte array
-        int length = 2 + 1 + file.length() + 1; // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator.
-        // Construct the byte array
+        // 2 bytes for opcode, 1 byte for actionNum, 1 byte for zero terminator.
+        int length = 2 + 1 + file.length() + 1;
+
         byte[] bcastPacket = new byte[length];
-        // Encode the opcode
+        // Encode bcast packet
         bcastPacket[0] = 0; // The First byte is 0
         bcastPacket[1] = BCAST_OPCODE; // The Second byte is the opcode
-        // Encode the actionNum
         bcastPacket[2] = (byte) actionNum;
+
         // Encode the filename as UTF-8 bytes
         byte[] fileNameBytes = file.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(fileNameBytes, 0, bcastPacket, 3, fileNameBytes.length);
+
         // Add zero terminator
         bcastPacket[length - 1] = 0;
         return bcastPacket;

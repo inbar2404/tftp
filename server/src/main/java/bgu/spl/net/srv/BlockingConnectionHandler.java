@@ -68,7 +68,6 @@ public class BlockingConnectionHandler<T> implements Runnable, ConnectionHandler
     public void send(T msg) {
         try {
             if (msg != null) {
-                // TODO: Needed more check than out because out might not be init because of the run - zoom 24:30
                 out.write(encdec.encode(msg));
                 out.flush();
             }

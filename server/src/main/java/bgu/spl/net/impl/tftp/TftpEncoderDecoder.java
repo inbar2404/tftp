@@ -42,12 +42,13 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         } else if (opcode == PacketOpcode.DATA) {
             // Handle case of opcode = DATA
             if(len == 4) {
-                currentPacketSize = (short) (((short) bytes[2]) << 8 | (short) (bytes[3]));
+                currentPacketSize = (short) (((short) bytes[2] & 0x00FF) << 8 | (short) (bytes[3] & 0x00FF));
             }
             if (len >= 5 + currentPacketSize) {
                 pushByte(nextByte);
                 byte[] data = new byte[currentPacketSize+6];
                 System.arraycopy(bytes, 0, data, 0, currentPacketSize+6);
+                len = 0;
                 return data;
             }
         }
@@ -59,7 +60,7 @@ public class TftpEncoderDecoder implements MessageEncoderDecoder<byte[]> {
 
     // Decodes the first 2 bytes to find the opcode
     private PacketOpcode decodeOpcode() {
-        short opcode = (short) (((short) bytes[0]) << 8 | (short) (bytes[1]));
+        short opcode = (short) (((short) bytes[0] & 0x00FF) << 8 | (short) (bytes[1] & 0x00FF));
         return PacketOpcode.fromShort(opcode);
     }
 

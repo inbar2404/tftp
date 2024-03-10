@@ -20,4 +20,8 @@ public class UploadingFiles {
     public boolean contains(String name) {
         return this.uploadingFiles.containsKey(name);
     }
+
+    public void removeByConnectionId(int id) {
+        this.uploadingFiles.entrySet().removeIf(entry -> entry.getValue() == id);
+    }
 }
