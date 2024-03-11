@@ -9,6 +9,8 @@ public class KeyboardThread implements Runnable {
     private boolean shouldTerminate;
 
     public static int packetsNum = 1;
+    public static String downloadFileName;
+    public static String suserCommand;
 
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
         this.handler = handler;
@@ -53,13 +55,16 @@ public class KeyboardThread implements Runnable {
             userCommand = userInput;
         }
 
+        suserCommand = userCommand;
 
         switch (userCommand) {
             case "LOGRQ": {
+                suserCommand = "LOGRQ";
                 packetsNum = 1;
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
             }
-            case "DISC":
+            case "DISC": {
+                suserCommand = "DISC";
                 packetsNum = 1;
                 if (!handler.userLoggedIn) {
                     System.out.println("Closing");
@@ -71,18 +76,45 @@ public class KeyboardThread implements Runnable {
                 }
                 shouldTerminate = true;
                 return buildDISC();
-            case "DELRQ":
+            }
+            case "DELRQ": { // TODO: Check and refactor - Bar says there is a problem here
+                suserCommand = "DELRQ";
                 packetsNum = 2;
                 return buildDELRQ(userInput.substring(spaceIndex + 1));
+            }
+            case "RRQ": {
+                // Handle case file already exists in client side
+                if (new File(userInput.substring(spaceIndex + 1)).exists()) {
+                    System.out.println("file already exists");
+                }
+                else {
+                    suserCommand = "RRQ";
+                    packetsNum = 1;
+                    return buildRRQ(userInput.substring(spaceIndex + 1));
+                }
+            }
         }
 
         return null;
     }
 
+    private  byte[] buildRRQ(String fileName) {
+        downloadFileName = fileName;
+        byte[] fileNameBytes = fileName.getBytes();
+
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
+        fullMsg[0] = 0;
+        fullMsg[1] = 1;
+        fullMsg[fullMsg.length - 1] = 0;
+
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
+        return fullMsg;
+    }
     private byte[] buildLOGRQ(String userName) {
         byte[] userNameBytes = userName.getBytes();
 
-        // Insert opcode of logrq to the msg , andd a 0 terminator
+        // Insert opcode of logrq to the msg , and a 0 terminator
         byte[] fullMsg = new byte[userNameBytes.length + 3];
         fullMsg[0] = 0;
         fullMsg[1] = 7;

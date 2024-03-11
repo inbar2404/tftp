@@ -14,7 +14,7 @@ public enum PacketOpcode {
     BCAST((short) 9),
     DISC((short) 10);
 
-    private final short SHORT_VALUE;
+    public final short SHORT_VALUE;
 
     PacketOpcode(short shortValue) {
         this.SHORT_VALUE = shortValue;
