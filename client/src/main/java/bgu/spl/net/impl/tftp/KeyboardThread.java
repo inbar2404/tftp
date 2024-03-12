@@ -65,6 +65,7 @@ public class KeyboardThread implements Runnable {
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
             }
             case "DISC": {
+                // TODO: Solve problem DISC doesn't work after after all commands (except LOGRQ)
                 suserCommand = "DISC";
                 packetsNum = 1;
                 if (!handler.userLoggedIn) {
@@ -82,6 +83,12 @@ public class KeyboardThread implements Runnable {
                 suserCommand = "DELRQ";
                 packetsNum = 2;
                 return buildDELRQ(userInput.substring(spaceIndex + 1));
+            }
+            case "DIRQ": {
+                // TODO: I think also after DIRQ there is a problem commiting different commands
+                suserCommand = "DIRQ";
+                packetsNum = 1;
+                return new byte[]{0, 6};
             }
             case "RRQ": {
                 // Handle case file already exists in client side

@@ -127,10 +127,43 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
 
     private void processData() {
         System.out.println("DATA " + seqNumReceived);
-        // TODO: Is it necessary to make it a different case?
         if (KeyboardThread.suserCommand.equals("RRQ")) {
             processRRQData();
         }
+        if (KeyboardThread.suserCommand.equals("DIRQ")) {
+            processDIRQData();
+        }
+    }
+
+    private  void processDIRQData() {
+        // In case is the last packet
+        if (currentPacketSize < MAX_DATA_SIZE) {
+            printNames(); // TODO: Make sure I print as required
+        } else {
+            seqNumSent++;
+        }
+        sendAck(seqNumReceived);
+    }
+
+    private void printNames() {
+        StringBuilder builder = new StringBuilder();
+        int startIndex = 0;
+        while (startIndex < data.length) {
+            int endIndex = startIndex;
+            // Find the end of the null-terminated string
+            while (endIndex < data.length && data[endIndex] != 0) {
+                endIndex++;
+            }
+            // Convert the bytes to a string and append it to the StringBuilder
+            builder.append(new String(data, startIndex, endIndex - startIndex));
+            // Append a space after each name, except for the last one
+            if (endIndex < data.length - 1) {
+                builder.append('\n');
+            }
+            // Move to the next string (skip the null byte)
+            startIndex = endIndex + 1;
+        }
+        System.out.println(builder.toString());
     }
 
     private void processRRQData() {
