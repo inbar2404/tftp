@@ -10,6 +10,7 @@ public class KeyboardThread implements Runnable {
 
     public static int packetsNum = 1;
     public static String downloadFileName;
+    public static String uploadFileName;
     public static String suserCommand;
 
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
@@ -93,6 +94,17 @@ public class KeyboardThread implements Runnable {
                     return buildRRQ(userInput.substring(spaceIndex + 1));
                 }
             }
+            case "WRQ": {
+                // Handle case file does not exist in client side
+                if (!new File(userInput.substring(spaceIndex + 1)).exists()) {
+                    System.out.println("file does not exist");
+                }
+                else {
+                    suserCommand = "WRQ";
+                    packetsNum = 1;
+                    return buildWRQ(userInput.substring(spaceIndex + 1));
+                }
+            }
         }
 
         return null;
@@ -106,6 +118,20 @@ public class KeyboardThread implements Runnable {
         byte[] fullMsg = new byte[fileNameBytes.length + 3];
         fullMsg[0] = 0;
         fullMsg[1] = 1;
+        fullMsg[fullMsg.length - 1] = 0;
+
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
+        return fullMsg;
+    }
+
+    private byte[] buildWRQ(String fileName) {
+        uploadFileName = fileName;
+        byte[] fileNameBytes = fileName.getBytes();
+
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
+        fullMsg[0] = 0;
+        fullMsg[1] = 2;
         fullMsg[fullMsg.length - 1] = 0;
 
         System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
