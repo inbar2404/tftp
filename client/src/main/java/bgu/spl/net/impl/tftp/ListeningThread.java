@@ -12,7 +12,6 @@ public class ListeningThread implements Runnable {
     }
 
 
-    // TODO: Make sure it works as expected
     public void run() {
         synchronized (handler) {
             while (!shouldTerminate && !Thread.currentThread().isInterrupted()) {

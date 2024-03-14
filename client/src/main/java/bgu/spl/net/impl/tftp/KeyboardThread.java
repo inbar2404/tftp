@@ -11,6 +11,7 @@ public class KeyboardThread implements Runnable {
     public static int packetsNum = 1;
     public static String downloadFileName;
     public static String uploadFileName;
+    public static String deleteFileName;
     public static String suserCommand;
 
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
@@ -21,7 +22,7 @@ public class KeyboardThread implements Runnable {
     /**
      * Main lifecycle.
      */
-    // TODO : CHECK WHEN NEEDS INTERRUPT
+    // TODO : Check when needs to interrupt
     public void run() {
         Scanner scanner = new Scanner(System.in);
         while (!shouldTerminate && !Thread.currentThread().isInterrupted()) {
@@ -79,13 +80,13 @@ public class KeyboardThread implements Runnable {
                 shouldTerminate = true;
                 return buildDISC();
             }
-            case "DELRQ": { // TODO: Check and refactor - Bar says there is a problem here
+            case "DELRQ": {
                 suserCommand = "DELRQ";
-                packetsNum = 2;
+                packetsNum = 1;
                 return buildDELRQ(userInput.substring(spaceIndex + 1));
             }
             case "DIRQ": {
-                // TODO: I think also after DIRQ there is a problem commiting different commands
+                // TODO: I think also after DIRQ there is a problem commiting different commands - and more cases, handle it
                 suserCommand = "DIRQ";
                 packetsNum = 1;
                 return new byte[]{0, 6};
@@ -165,15 +166,16 @@ public class KeyboardThread implements Runnable {
     }
 
     private byte[] buildDELRQ(String fileNameToDelete) {
-        byte[] fileNameToDeleteBytes = fileNameToDelete.getBytes();
+        deleteFileName = fileNameToDelete;
+        byte[] fileNameBytes = fileNameToDelete.getBytes();
 
-        // Insert opcode of logrq to the msg , andd a 0 terminator
-        byte[] fullMsg = new byte[fileNameToDeleteBytes.length + 3];
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
         fullMsg[0] = 0;
         fullMsg[1] = 8;
         fullMsg[fullMsg.length - 1] = 0;
 
-        System.arraycopy(fileNameToDeleteBytes, 0, fullMsg, 2, fileNameToDeleteBytes.length);
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
         return fullMsg;
     }
 }

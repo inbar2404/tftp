@@ -30,7 +30,6 @@ public class EchoClient {
             out.newLine();
             out.flush();
 
-            // TODO: while(true) was added due to code snapshot from zoom, is it required
             while (true) {
                 System.out.println("awaiting response");
                 String line = in.readLine();

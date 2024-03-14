@@ -17,6 +17,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     private byte[] data = new byte[0];
     private int errorNumber;
     private String errorMsg;
+    private short action;
     public final int MAX_DATA_SIZE = 512;
     public final int DATA_HEADER_SIZE = 6;
     private BufferedOutputStream out;
@@ -45,6 +46,10 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
                 processError();
                 break;
             }
+            case BCAST: {
+                processBCAST();
+                break;
+            }
         }
         return true;
     }
@@ -63,6 +68,10 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
             case ERROR:
                 this.errorNumber = (short) (((short) message[2] & 0x00FF) << 8 | (short) (message[3] & 0x00FF));
                 this.errorMsg = new String(message, 4, message.length - 4);
+                break;
+            case BCAST:
+                byte[] s = new byte[]{message[0]};
+                this.action = (short) (((short) s[0] & 0xFF) << 8);
                 break;
         }
     }
@@ -104,7 +113,6 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
             try {
                 this.data = Files.readAllBytes(file.toPath());
             } catch (IOException e) {
-                // TODO: Handle exception differently?
                 e.printStackTrace();
             }
         }
@@ -135,10 +143,10 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
         }
     }
 
-    private  void processDIRQData() {
+    private void processDIRQData() {
         // In case is the last packet
         if (currentPacketSize < MAX_DATA_SIZE) {
-            printNames(); // TODO: Make sure I print as required
+            printNames();
         } else {
             seqNumSent++;
         }
@@ -179,7 +187,6 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
                 data = new byte[0];
                 KeyboardThread.downloadFileName = "";
             } catch (IOException e) {
-                // TODO: Handle exception differently?
                 e.printStackTrace();
             }
         } else {
@@ -230,6 +237,14 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
             out.write(encodedMessage);
             out.flush();
         } catch (Exception ignored) {
+        }
+    }
+
+    private void processBCAST() {
+        if (action == 0) { // In case it is DELRQ
+            System.out.println("BCAST del " + KeyboardThread.deleteFileName);
+        } else { // In case it is ADD
+            System.out.println("BCAST add " + KeyboardThread.uploadFileName);
         }
     }
 }
