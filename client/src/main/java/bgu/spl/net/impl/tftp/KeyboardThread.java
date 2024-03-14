@@ -66,7 +66,6 @@ public class KeyboardThread implements Runnable {
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
             }
             case "DISC": {
-                // TODO: Solve problem DISC doesn't work after after all commands (except LOGRQ)
                 suserCommand = "DISC";
                 packetsNum = 1;
                 if (!handler.userLoggedIn) {

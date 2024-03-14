@@ -89,16 +89,17 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     }
 
     private void processAck() {
+        // TODO: Add check - ACK order mismatch
         System.out.println("ACK " + seqNumReceived);
+        if (KeyboardThread.packetsNum == 1)
+            shouldTerminate = true;
+        else
+            KeyboardThread.packetsNum--;
+
+
         if (KeyboardThread.suserCommand.equals("WRQ")) {
             processWRQACK();
         } else {
-            if (KeyboardThread.packetsNum == 1)
-                shouldTerminate = true;
-            else
-                KeyboardThread.packetsNum--;
-            // TODO : CHECK HOW TO TELL THC CH TO NOT TERMINATE WHEN RECEIVING DATA PACKETS
-
             if ((int) seqNumReceived == seqNumSent)
                 seqNumSent++;
             else
@@ -141,14 +142,21 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
         if (KeyboardThread.suserCommand.equals("DIRQ")) {
             processDIRQData();
         }
+
+        if (KeyboardThread.packetsNum == 1)
+            shouldTerminate = true;
+        else
+            KeyboardThread.packetsNum--;
     }
 
     private void processDIRQData() {
         // In case is the last packet
         if (currentPacketSize < MAX_DATA_SIZE) {
             printNames();
+            KeyboardThread.packetsNum = 1;
         } else {
             seqNumSent++;
+            KeyboardThread.packetsNum--;
         }
         sendAck(seqNumReceived);
     }
@@ -172,6 +180,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
             startIndex = endIndex + 1;
         }
         System.out.println(builder.toString());
+        data = new byte[0];
     }
 
     private void processRRQData() {
@@ -186,11 +195,13 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
                 seqNumSent = 0;
                 data = new byte[0];
                 KeyboardThread.downloadFileName = "";
+                KeyboardThread.packetsNum = 1;
             } catch (IOException e) {
                 e.printStackTrace();
             }
         } else {
             seqNumSent++;
+            KeyboardThread.packetsNum++;
         }
         sendAck(seqNumReceived);
     }

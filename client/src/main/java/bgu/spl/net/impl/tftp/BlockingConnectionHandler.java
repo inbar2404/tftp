@@ -40,8 +40,6 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
             }
         }
         this.notifyAll();
-
-
     }
 
     // TODO : check if need reset the threads
