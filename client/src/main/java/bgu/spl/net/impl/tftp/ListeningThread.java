@@ -18,19 +18,18 @@ public class ListeningThread implements Runnable {
                 try {
                     // Wait for keyboard thread to notify
                     handler.wait();
-                } catch (InterruptedException ignored) {break;
+                } catch (InterruptedException ignored) {
+                    break;
                 }
                 try {
                     handler.userLoggedIn = true;
                     handler.receive();
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+                } catch (IOException ignored) {
                 }
 
 
             }
         }
-        System.out.println("finished LT ");
 
     }
 }

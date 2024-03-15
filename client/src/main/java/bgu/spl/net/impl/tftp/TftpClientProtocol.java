@@ -22,6 +22,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     public final int DATA_HEADER_SIZE = 6;
     private BufferedOutputStream out;
     private boolean wrqActive = false;
+    private boolean isLastPacket = false;
 
     public TftpClientProtocol(BufferedOutputStream out) {
         this.out = out;
@@ -90,24 +91,32 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
 
     private void processAck() {
         System.out.println("ACK " + seqNumReceived);
-        if (KeyboardThread.packetsNum == 1 && !(KeyboardThread.suserCommand.equals("DELRQ") || wrqActive))
+        if (isLastPacket) {
+            System.out.println("WRQ " + KeyboardThread.uploadFileName + " complete");
+            isLastPacket = false;
+        }
+        if (KeyboardThread.packetsNum == 1 && !(KeyboardThread.suserCommand.equals("DELRQ") || wrqActive)) {
             shouldTerminate = true;
-        else
+        } else
             KeyboardThread.packetsNum--;
 
         if (KeyboardThread.suserCommand.equals("WRQ")) {
             wrqActive = true;
             shouldTerminate = false;
-            processWRQACK();
+            isLastPacket = processWRQACK();
+
+
         } else {
             if ((int) seqNumReceived == seqNumSent)
                 seqNumSent++;
             else
                 seqNumSent = 1;
         }
+
     }
 
-    private void processWRQACK() {
+    // Return true if it's the last packet
+    private boolean processWRQACK() {
         // In case of first packet
         if (data.length == 0) {
             File file = new File(KeyboardThread.uploadFileName);
@@ -120,10 +129,10 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
         // In case of  last packet
         if (data.length < MAX_DATA_SIZE) {
             sendData(data);
-            System.out.println("WRQ " + KeyboardThread.uploadFileName + " complete");
             // Reset related fields
             data = new byte[0];
             KeyboardThread.suserCommand = "";
+            return true;
         } else {
             byte[] currentData = Arrays.copyOf(data, MAX_DATA_SIZE);
             // Remove the extracted bytes from the data array
@@ -132,10 +141,10 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
             data = remainingData;
             sendData(currentData);
         }
+        return false;
     }
 
     private void processData() {
-        System.out.println("DATA " + seqNumReceived);
         if (KeyboardThread.suserCommand.equals("RRQ")) {
             processRRQData();
         }

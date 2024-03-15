@@ -29,7 +29,7 @@ public class KeyboardThread implements Runnable {
             synchronized (handler) {
                 byte[] msg = processUserInput(scanner.nextLine());
                 try {
-                    if (!shouldTerminate && msg != null) {
+                    if (msg != null) {
                         handler.send(msg);
                         handler.wait();
                     }
@@ -44,7 +44,6 @@ public class KeyboardThread implements Runnable {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        System.out.println("finished KT ");
     }
 
 
@@ -69,7 +68,6 @@ public class KeyboardThread implements Runnable {
                 suserCommand = "DISC";
                 packetsNum = 1;
                 if (!handler.userLoggedIn) {
-                    System.out.println("Closing");
                     try {
                         handler.close();
                     } catch (IOException e) {
@@ -163,6 +161,8 @@ public class KeyboardThread implements Runnable {
         byte[] fullMsg = new byte[2];
         fullMsg[0] = 0;
         fullMsg[1] = 10;
+        handler.notifyAll();
+        handler.send(fullMsg);
         return fullMsg;
     }
 
