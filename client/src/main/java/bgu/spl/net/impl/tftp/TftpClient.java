@@ -19,15 +19,13 @@ public class TftpClient {
         }
 
 
-
         try {
             Socket sock = new Socket(args[0], Integer.parseInt(args[1]));
-            System.out.println("client started!");
             BufferedOutputStream out = new BufferedOutputStream(sock.getOutputStream());
 
             List<Thread> threads = new ArrayList<>();
             BlockingConnectionHandler<byte[]> handler = new BlockingConnectionHandler<>(
-                    sock, new TftpClientEncoderDecoder(), new TftpClientProtocol(out),threads);
+                    sock, new TftpClientEncoderDecoder(), new TftpClientProtocol(out), threads);
             // Build keyboard thread
             KeyboardThread keyboardRunnable = new KeyboardThread(handler);
             Thread keyboardThread = new Thread(keyboardRunnable);
