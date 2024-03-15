@@ -29,9 +29,10 @@ public class KeyboardThread implements Runnable {
             synchronized (handler) {
                 byte[] msg = processUserInput(scanner.nextLine());
                 try {
-                    if(!shouldTerminate){
-                    handler.send(msg);
-                    handler.wait();}
+                    if (!shouldTerminate && msg != null) {
+                        handler.send(msg);
+                        handler.wait();
+                    }
                 } catch (InterruptedException ignored) {
                     break;
                 }
@@ -44,7 +45,6 @@ public class KeyboardThread implements Runnable {
             throw new RuntimeException(e);
         }
         System.out.println("finished KT ");
-
     }
 
 
@@ -85,7 +85,6 @@ public class KeyboardThread implements Runnable {
                 return buildDELRQ(userInput.substring(spaceIndex + 1));
             }
             case "DIRQ": {
-                // TODO: I think also after DIRQ there is a problem commiting different commands - and more cases, handle it
                 suserCommand = "DIRQ";
                 packetsNum = 1;
                 return new byte[]{0, 6};
@@ -94,30 +93,30 @@ public class KeyboardThread implements Runnable {
                 // Handle case file already exists in client side
                 if (new File(userInput.substring(spaceIndex + 1)).exists()) {
                     System.out.println("file already exists");
-                }
-                else {
+                } else {
                     suserCommand = "RRQ";
                     packetsNum = 1;
                     return buildRRQ(userInput.substring(spaceIndex + 1));
                 }
+                break;
             }
             case "WRQ": {
                 // Handle case file does not exist in client side
                 if (!new File(userInput.substring(spaceIndex + 1)).exists()) {
                     System.out.println("file does not exist");
-                }
-                else {
+                } else {
                     suserCommand = "WRQ";
                     packetsNum = 1;
                     return buildWRQ(userInput.substring(spaceIndex + 1));
                 }
+                break;
             }
         }
 
         return null;
     }
 
-    private  byte[] buildRRQ(String fileName) {
+    private byte[] buildRRQ(String fileName) {
         downloadFileName = fileName;
         byte[] fileNameBytes = fileName.getBytes();
 
@@ -144,6 +143,7 @@ public class KeyboardThread implements Runnable {
         System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
         return fullMsg;
     }
+
     private byte[] buildLOGRQ(String userName) {
         byte[] userNameBytes = userName.getBytes();
 

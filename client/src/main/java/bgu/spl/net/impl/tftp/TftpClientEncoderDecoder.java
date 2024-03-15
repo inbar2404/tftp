@@ -37,12 +37,18 @@ public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         } else if (opcode == PacketOpcode.DISC || opcode == PacketOpcode.DIRQ) {
             return finishDecoding();
         } else if ((opcode == PacketOpcode.RRQ || opcode == PacketOpcode.WRQ ||
-                opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
+                opcode == PacketOpcode.DELRQ  || opcode == PacketOpcode.LOGRQ)
                 && nextByte == FINISH_BYTE) {
             return finishDecoding();
         } else if (opcode == PacketOpcode.ERROR && nextByte == FINISH_BYTE && len > 3) {
             return finishDecoding();
-        } else if (opcode == PacketOpcode.DATA) {
+        } else if (opcode == PacketOpcode.BCAST) {
+            if (len == 3) {
+                pushByte(nextByte);
+                return finishDecoding();
+            }
+        }
+        else if (opcode == PacketOpcode.DATA) {
             // Handle case of opcode = DATA
             if (len == 4) {
                 currentPacketSize = (short) (((short) bytes[2] & 0x00FF) << 8 | (short) (bytes[3] & 0x00FF));

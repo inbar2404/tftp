@@ -21,6 +21,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     public final int MAX_DATA_SIZE = 512;
     public final int DATA_HEADER_SIZE = 6;
     private BufferedOutputStream out;
+    private boolean wrqActive = false;
 
     public TftpClientProtocol(BufferedOutputStream out) {
         this.out = out;
@@ -70,8 +71,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
                 this.errorMsg = new String(message, 4, message.length - 4);
                 break;
             case BCAST:
-                byte[] s = new byte[]{message[0]};
-                this.action = (short) (((short) s[0] & 0xFF) << 8);
+                this.action = (short) (((short) message[2] & 0x00FF) << 8);
                 break;
         }
     }
@@ -91,13 +91,14 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     private void processAck() {
         // TODO: Add check - ACK order mismatch
         System.out.println("ACK " + seqNumReceived);
-        if (KeyboardThread.packetsNum == 1)
+        if (KeyboardThread.packetsNum == 1 && !(KeyboardThread.suserCommand.equals("DELRQ") || wrqActive))
             shouldTerminate = true;
         else
             KeyboardThread.packetsNum--;
 
-
         if (KeyboardThread.suserCommand.equals("WRQ")) {
+            wrqActive = true;
+            shouldTerminate = false;
             processWRQACK();
         } else {
             if ((int) seqNumReceived == seqNumSent)
@@ -108,7 +109,7 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     }
 
     private void processWRQACK() {
-        // In case of last packet
+        // In case of first packet
         if (data.length == 0) {
             File file = new File(KeyboardThread.uploadFileName);
             try {
@@ -121,8 +122,8 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
         if (data.length < MAX_DATA_SIZE) {
             sendData(data);
             System.out.println("WRQ " + KeyboardThread.uploadFileName + " complete");
+            // Reset related fields
             data = new byte[0];
-            KeyboardThread.uploadFileName = "";
             KeyboardThread.suserCommand = "";
         } else {
             byte[] currentData = Arrays.copyOf(data, MAX_DATA_SIZE);
@@ -252,10 +253,17 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     }
 
     private void processBCAST() {
+        // Print the BCAST message
         if (action == 0) { // In case it is DELRQ
             System.out.println("BCAST del " + KeyboardThread.deleteFileName);
         } else { // In case it is ADD
             System.out.println("BCAST add " + KeyboardThread.uploadFileName);
         }
+        // Reset related fields
+        shouldTerminate = true;
+        wrqActive = false;
+        KeyboardThread.uploadFileName = "";
+        KeyboardThread.deleteFileName = "";
+        KeyboardThread.packetsNum = 1;
     }
 }
