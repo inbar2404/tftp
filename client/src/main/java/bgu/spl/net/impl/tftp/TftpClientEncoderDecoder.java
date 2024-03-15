@@ -4,11 +4,12 @@ import bgu.spl.net.api.MessageEncoderDecoder;
 
 import java.util.Arrays;
 
-// TODO : update class from server when Inbar finished
 public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
     private byte[] bytes = new byte[1 << 10]; //start with 1k
     private int len = 0;
     private PacketOpcode opcode = PacketOpcode.NOT_INIT;
+    private int currentPacketSize = 0;
+
     private final int OPCODE_LEN = 2;
     private final byte FINISH_BYTE = (byte) 0;
 
@@ -36,12 +37,29 @@ public class TftpClientEncoderDecoder implements MessageEncoderDecoder<byte[]> {
         } else if (opcode == PacketOpcode.DISC || opcode == PacketOpcode.DIRQ) {
             return finishDecoding();
         } else if ((opcode == PacketOpcode.RRQ || opcode == PacketOpcode.WRQ ||
-                opcode == PacketOpcode.DELRQ || opcode == PacketOpcode.BCAST || opcode == PacketOpcode.LOGRQ)
+                opcode == PacketOpcode.DELRQ  || opcode == PacketOpcode.LOGRQ)
                 && nextByte == FINISH_BYTE) {
             return finishDecoding();
-        }
-        else if (opcode == PacketOpcode.ERROR && nextByte == FINISH_BYTE && len > 3) {
+        } else if (opcode == PacketOpcode.ERROR && nextByte == FINISH_BYTE && len > 3) {
             return finishDecoding();
+        } else if (opcode == PacketOpcode.BCAST) {
+            if (len == 3) {
+                pushByte(nextByte);
+                return finishDecoding();
+            }
+        }
+        else if (opcode == PacketOpcode.DATA) {
+            // Handle case of opcode = DATA
+            if (len == 4) {
+                currentPacketSize = (short) (((short) bytes[2] & 0x00FF) << 8 | (short) (bytes[3] & 0x00FF));
+            }
+            if (len >= 5 + currentPacketSize) {
+                pushByte(nextByte);
+                byte[] data = new byte[currentPacketSize + 6];
+                System.arraycopy(bytes, 0, data, 0, currentPacketSize + 6);
+                len = 0;
+                return data;
+            }
         }
 
         pushByte(nextByte);

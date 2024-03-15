@@ -9,6 +9,10 @@ public class KeyboardThread implements Runnable {
     private boolean shouldTerminate;
 
     public static int packetsNum = 1;
+    public static String downloadFileName;
+    public static String uploadFileName;
+    public static String deleteFileName;
+    public static String suserCommand;
 
     public KeyboardThread(BlockingConnectionHandler<byte[]> handler) {
         this.handler = handler;
@@ -18,16 +22,17 @@ public class KeyboardThread implements Runnable {
     /**
      * Main lifecycle.
      */
-    // TODO : CHECK WHEN NEEDS INTERRUPT
+    // TODO : Check when needs to interrupt
     public void run() {
         Scanner scanner = new Scanner(System.in);
         while (!shouldTerminate && !Thread.currentThread().isInterrupted()) {
             synchronized (handler) {
                 byte[] msg = processUserInput(scanner.nextLine());
                 try {
-                    if(!shouldTerminate){
-                    handler.send(msg);
-                    handler.wait();}
+                    if (!shouldTerminate && msg != null) {
+                        handler.send(msg);
+                        handler.wait();
+                    }
                 } catch (InterruptedException ignored) {
                     break;
                 }
@@ -40,7 +45,6 @@ public class KeyboardThread implements Runnable {
             throw new RuntimeException(e);
         }
         System.out.println("finished KT ");
-
     }
 
 
@@ -53,13 +57,16 @@ public class KeyboardThread implements Runnable {
             userCommand = userInput;
         }
 
+        suserCommand = userCommand;
 
         switch (userCommand) {
             case "LOGRQ": {
+                suserCommand = "LOGRQ";
                 packetsNum = 1;
                 return buildLOGRQ(userInput.substring(spaceIndex + 1));
             }
-            case "DISC":
+            case "DISC": {
+                suserCommand = "DISC";
                 packetsNum = 1;
                 if (!handler.userLoggedIn) {
                     System.out.println("Closing");
@@ -71,18 +78,78 @@ public class KeyboardThread implements Runnable {
                 }
                 shouldTerminate = true;
                 return buildDISC();
-            case "DELRQ":
-                packetsNum = 2;
+            }
+            case "DELRQ": {
+                suserCommand = "DELRQ";
+                packetsNum = 1;
                 return buildDELRQ(userInput.substring(spaceIndex + 1));
+            }
+            case "DIRQ": {
+                suserCommand = "DIRQ";
+                packetsNum = 1;
+                return new byte[]{0, 6};
+            }
+            case "RRQ": {
+                // Handle case file already exists in client side
+                if (new File(userInput.substring(spaceIndex + 1)).exists()) {
+                    System.out.println("file already exists");
+                } else {
+                    suserCommand = "RRQ";
+                    packetsNum = 1;
+                    return buildRRQ(userInput.substring(spaceIndex + 1));
+                }
+                break;
+            }
+            case "WRQ": {
+                // Handle case file does not exist in client side
+                if (!new File(userInput.substring(spaceIndex + 1)).exists()) {
+                    System.out.println("file does not exist");
+                } else {
+                    suserCommand = "WRQ";
+                    packetsNum = 1;
+                    return buildWRQ(userInput.substring(spaceIndex + 1));
+                }
+                break;
+            }
+            default:
+                System.out.println("Invalid command");
         }
 
         return null;
     }
 
+    private byte[] buildRRQ(String fileName) {
+        downloadFileName = fileName;
+        byte[] fileNameBytes = fileName.getBytes();
+
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
+        fullMsg[0] = 0;
+        fullMsg[1] = 1;
+        fullMsg[fullMsg.length - 1] = 0;
+
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
+        return fullMsg;
+    }
+
+    private byte[] buildWRQ(String fileName) {
+        uploadFileName = fileName;
+        byte[] fileNameBytes = fileName.getBytes();
+
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
+        fullMsg[0] = 0;
+        fullMsg[1] = 2;
+        fullMsg[fullMsg.length - 1] = 0;
+
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
+        return fullMsg;
+    }
+
     private byte[] buildLOGRQ(String userName) {
         byte[] userNameBytes = userName.getBytes();
 
-        // Insert opcode of logrq to the msg , andd a 0 terminator
+        // Insert opcode of logrq to the msg , and a 0 terminator
         byte[] fullMsg = new byte[userNameBytes.length + 3];
         fullMsg[0] = 0;
         fullMsg[1] = 7;
@@ -100,15 +167,16 @@ public class KeyboardThread implements Runnable {
     }
 
     private byte[] buildDELRQ(String fileNameToDelete) {
-        byte[] fileNameToDeleteBytes = fileNameToDelete.getBytes();
+        deleteFileName = fileNameToDelete;
+        byte[] fileNameBytes = fileNameToDelete.getBytes();
 
-        // Insert opcode of logrq to the msg , andd a 0 terminator
-        byte[] fullMsg = new byte[fileNameToDeleteBytes.length + 3];
+        // Insert opcode of logrq to the msg , and a 0 terminator
+        byte[] fullMsg = new byte[fileNameBytes.length + 3];
         fullMsg[0] = 0;
         fullMsg[1] = 8;
         fullMsg[fullMsg.length - 1] = 0;
 
-        System.arraycopy(fileNameToDeleteBytes, 0, fullMsg, 2, fileNameToDeleteBytes.length);
+        System.arraycopy(fileNameBytes, 0, fullMsg, 2, fileNameBytes.length);
         return fullMsg;
     }
 }

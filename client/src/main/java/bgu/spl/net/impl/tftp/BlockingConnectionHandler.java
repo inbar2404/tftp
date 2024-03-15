@@ -39,9 +39,8 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
                 userLoggedIn = protocol.process(nextMessage);
             }
         }
+        clearInputStream();
         this.notifyAll();
-
-
     }
 
     // TODO : check if need reset the threads
@@ -65,5 +64,11 @@ public class BlockingConnectionHandler<T> implements ConnectionHandler<T> {
             ex.printStackTrace();
         }
         notifyAll();
+    }
+
+    private void clearInputStream() throws IOException {
+        while (in.available() > 0) {
+            in.read();
+        }
     }
 }
