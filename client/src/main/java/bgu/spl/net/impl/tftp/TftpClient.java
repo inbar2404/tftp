@@ -9,40 +9,40 @@ import java.util.List;
 
 public class TftpClient {
     public static void main(String[] args) throws Exception {
-        System.out.println("client started!");
-        Socket sock;
-        try {
-            // TODO : CHANGE TO GET THIS FROM USER + Handle case can not connect
-            sock = new Socket("127.0.0.1", 7777);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (args.length == 0) {
+            args = new String[]{"127.0.0.1", "7777"};
+        }
+
+        if (args.length < 2) {
+            System.out.println("you must supply two arguments: host, port");
+            System.exit(1);
         }
 
 
 
+        try {
+            Socket sock = new Socket(args[0], Integer.parseInt(args[1]));
+            System.out.println("client started!");
+            BufferedOutputStream out = new BufferedOutputStream(sock.getOutputStream());
 
+            List<Thread> threads = new ArrayList<>();
+            BlockingConnectionHandler<byte[]> handler = new BlockingConnectionHandler<>(
+                    sock, new TftpClientEncoderDecoder(), new TftpClientProtocol(out),threads);
+            // Build keyboard thread
+            KeyboardThread keyboardRunnable = new KeyboardThread(handler);
+            Thread keyboardThread = new Thread(keyboardRunnable);
 
-        BufferedOutputStream out = new BufferedOutputStream(sock.getOutputStream());
-        List<Thread> threads = new ArrayList<>();
+            // Build listening thread
+            ListeningThread listeningRunnable = new ListeningThread(handler);
+            Thread listeningThread = new Thread(listeningRunnable);
+            threads.add(keyboardThread);
+            threads.add(listeningThread);
 
-
-
-
-        BlockingConnectionHandler<byte[]> handler = new BlockingConnectionHandler<>(
-                sock, new TftpClientEncoderDecoder(), new TftpClientProtocol(out),threads);
-        // Build keyboard thread
-        KeyboardThread keyboardRunnable = new KeyboardThread(handler);
-        Thread keyboardThread = new Thread(keyboardRunnable);
-
-        // Build listening thread
-        ListeningThread listeningRunnable = new ListeningThread(handler);
-        Thread listeningThread = new Thread(listeningRunnable);
-        threads.add(keyboardThread);
-        threads.add(listeningThread);
-
-        keyboardThread.start();
-        listeningThread.start();
-
+            keyboardThread.start();
+            listeningThread.start();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
 

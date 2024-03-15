@@ -89,7 +89,6 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     }
 
     private void processAck() {
-        // TODO: Add check - ACK order mismatch
         System.out.println("ACK " + seqNumReceived);
         if (KeyboardThread.packetsNum == 1 && !(KeyboardThread.suserCommand.equals("DELRQ") || wrqActive))
             shouldTerminate = true;
@@ -185,7 +184,6 @@ public class TftpClientProtocol implements MessagingProtocol<byte[]> {
     }
 
     private void processRRQData() {
-        // TODO: Add check - ACK order mismatch
         // In case is the last packet
         if (currentPacketSize < MAX_DATA_SIZE) {
             try (FileOutputStream out = new FileOutputStream(KeyboardThread.downloadFileName)) {

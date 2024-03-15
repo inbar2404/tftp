@@ -111,6 +111,8 @@ public class KeyboardThread implements Runnable {
                 }
                 break;
             }
+            default:
+                System.out.println("Invalid command");
         }
 
         return null;
