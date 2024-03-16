@@ -1,5 +1,6 @@
 package bgu.spl.net.impl.tftp;
 
+import java.awt.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.Scanner;
@@ -27,7 +28,12 @@ public class KeyboardThread implements Runnable {
         Scanner scanner = new Scanner(System.in);
         while (!shouldTerminate && !Thread.currentThread().isInterrupted()) {
             synchronized (handler) {
-                byte[] msg = processUserInput(scanner.nextLine());
+                byte[] msg = new byte[0];
+                try {
+                    msg = processUserInput(scanner.nextLine());
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
                 try {
                     if (msg != null) {
                         handler.send(msg);
@@ -47,7 +53,7 @@ public class KeyboardThread implements Runnable {
     }
 
 
-    private byte[] processUserInput(String userInput) {
+    private byte[] processUserInput(String userInput) throws IOException {
         int spaceIndex = userInput.indexOf(' ');
         String userCommand;
         if (spaceIndex != -1) {
@@ -89,7 +95,10 @@ public class KeyboardThread implements Runnable {
             }
             case "RRQ": {
                 // Handle case file already exists in client side
-                if (new File(userInput.substring(spaceIndex + 1)).exists()) {
+                String fileName = userInput.substring(spaceIndex + 1);
+                File file = new File(fileName);
+
+                if (file.exists() && file.getCanonicalFile().getName().equals(file.getName())) {
                     System.out.println("file already exists");
                 } else {
                     suserCommand = "RRQ";
@@ -100,7 +109,9 @@ public class KeyboardThread implements Runnable {
             }
             case "WRQ": {
                 // Handle case file does not exist in client side
-                if (!new File(userInput.substring(spaceIndex + 1)).exists()) {
+                String fileName = userInput.substring(spaceIndex + 1);
+                File file = new File(fileName);
+                if (!file.exists() || !file.getCanonicalFile().getName().equals(file.getName())) {
                     System.out.println("file does not exist");
                 } else {
                     suserCommand = "WRQ";

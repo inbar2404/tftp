@@ -133,7 +133,7 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
                 this.seqNumReceived = (short) (((short) message[4] & 0x00FF) << 8 | (short) (message[5] & 0x00FF));
                 this.currentPacketSize = (short) (((short) message[2] & 0x00FF) << 8 | (short) (message[3] & 0x00FF));
                 byte[] currentData = Arrays.copyOfRange(message, 6, message.length);
-                if(this.data.length == 0) {
+                if (this.data.length == 0) {
                     this.data = currentData;
                 } else {
                     int newDataLength = data.length + currentData.length;
@@ -206,18 +206,23 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
         // This function tries to delete the file, and returns String representing the status of the file deletion.
         File file = new File("./Files/" + fileToDelete);
 
-        if (file.exists()) {
-            if ((!notConnected)) {
-                if (file.delete()) {
-                    return "deleted";
-                } else {
-                    return "failed";
-                }
-            } else
-                return "disc";
-        } else {
-            return "not exists";
+        try {
+            // Check if file exists case sensitive
+            if (file.exists()&& file.getCanonicalFile().getName().equals(file.getName())) {
+                if ((!notConnected)) {
+                    if (file.delete()) {
+                        return "deleted";
+                    } else {
+                        return "failed";
+                    }
+                } else
+                    return "disc";
+            } else {
+                return "not exists";
+            }
+        } catch (IOException ignored) {
         }
+        return "failed";
     }
 
     public void processDIRQ() {
@@ -287,15 +292,18 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     public void processWRQ() {
         if (!notConnected) {
             File file = new File("./Files/" + fileName);
-            if (file.exists() || uploadingFiles.contains(fileName)) {
-                // If file already exists - return an error.
-                userHadError = true;
-                connections.send(connectionId, buildError(5, "File already exists"));
-            } else {
-                uploadingFiles.add(fileName, connectionId);
-                currentUploadFile = fileName;
-                connections.send(connectionId, buildAck(0));
-            }
+            try {
+                // Check if file exists case-sensitive or if is uploading now
+                if ((file.exists() && file.getCanonicalFile().getName().equals(file.getName())) || uploadingFiles.contains(fileName)) {
+                    // If file already exists - return an error.
+                    userHadError = true;
+                    connections.send(connectionId, buildError(5, "File already exists"));
+                } else {
+                    uploadingFiles.add(fileName, connectionId);
+                    currentUploadFile = fileName;
+                    connections.send(connectionId, buildAck(0));
+                }
+            } catch (IOException ignored) {}
         } else {
             // If user not connected - return error.
             userHadError = true;
@@ -362,20 +370,24 @@ public class TftpProtocol implements BidiMessagingProtocol<byte[]> {
     // Downloads the file from the server to the client.
     public void processRRQ() {
         File file = new File("./Files/" + fileName);
-        if (!file.exists()) {
-            userHadError = true;
-            connections.send(connectionId, buildError(1, "File not found"));
-        } else if (!notConnected) {
-            try {
-                this.data = Files.readAllBytes(file.toPath());
-                connections.send(connectionId, buildDataPacket());
-            } catch (IOException ignored) {
+        try {
+            // Check if file not exists case-sensitive
+            if (!file.exists() ||  !file.getCanonicalFile().getName().equals(file.getName())) {
                 userHadError = true;
-                connections.send(connectionId, buildError(2, "Access violation"));
+                connections.send(connectionId, buildError(1, "File not found"));
+            } else if (!notConnected) {
+                try {
+                    this.data = Files.readAllBytes(file.toPath());
+                    connections.send(connectionId, buildDataPacket());
+                } catch (IOException ignored) {
+                    userHadError = true;
+                    connections.send(connectionId, buildError(2, "Access violation"));
+                }
+            } else {
+                userHadError = true;
+                connections.send(connectionId, buildError(6, "User not logged in"));
             }
-        } else {
-            userHadError = true;
-            connections.send(connectionId, buildError(6, "User not logged in"));
+        } catch (IOException ignored) {
         }
     }
 
