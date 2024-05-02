@@ -17,6 +17,7 @@ public class ConnectionsImpl<T> implements Connections<T> {
     @Override
     public void connect(int connectionId, ConnectionHandler<T> handler) {
         connectedHandlersMap.put(connectionId, handler);
+        System.out.println("aaa");
     }
 
     @Override
